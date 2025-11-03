@@ -2,7 +2,7 @@
 
 Linux driver for the TourBox Elite - a Bluetooth Low Energy (BLE) input device by TourBox Tech Inc. This driver translates BLE input events to Linux input events via evdev/uinput.
 
-> **⚠️ Important:** This driver is for **Bluetooth connections only**. It does **NOT** support USB connections. The TourBox Elite must be connected via Bluetooth LE.
+> **⚠️ Important:** This driver is for **Bluetooth connections only**. It does **NOT** support USB connections.
 
 ## Features
 
