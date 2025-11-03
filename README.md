@@ -42,7 +42,7 @@ Open a terminal and scan for your TourBox:
 bluetoothctl devices
 ```
 
-Look for a device named "TourBox Elite" in the output. The MAC address will look like `XX:XX:XX:XX:XX:XX`. Copy this address - you'll need it in Step 3.
+Look for a device named "TourBox Elite" in the output. The MAC address will look like `XX:XX:XX:XX:XX:XX`. Copy this address - you'll need it in Step 2 or 3.
 
 Example output:
 ```
@@ -62,7 +62,7 @@ The installer will:
 2. Install the driver and dependencies
 3. Set up your configuration file
 4. Install and enable the systemd service
-5. Start the driver
+5. Log off and log back on again or reboot
 
 ### Step 3: Configure Your MAC Address
 
