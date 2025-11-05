@@ -31,6 +31,7 @@ class ProfileManager(QWidget):
     # Signals
     profile_selected = Signal(Profile)  # Emitted when user selects a profile
     profiles_changed = Signal()  # Emitted when profiles list changes
+    profiles_reset = Signal(Profile)  # Emitted when profiles reloaded from config (clears modified state)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -354,24 +355,55 @@ class ProfileManager(QWidget):
 
             profile_to_delete = self.current_profile
 
-            # Delete from config file
-            success = delete_profile(profile_to_delete.name)
+            # Check if profile exists in config file (may be new, unsaved profile)
+            from .config_writer import profile_exists_in_config
+            profile_was_in_config = profile_exists_in_config(profile_to_delete.name)
+
+            if profile_was_in_config:
+                # Delete from config file
+                success = delete_profile(profile_to_delete.name)
+            else:
+                # Profile doesn't exist in config yet (new, unsaved)
+                logger.info(f"Profile '{profile_to_delete.name}' not in config, removing from memory only")
+                success = True
 
             if success:
-                # Remove from profiles list
-                self.profiles.remove(profile_to_delete)
+                if profile_was_in_config:
+                    # Profile was saved - deletion is already saved to config file by delete_profile()
+                    # Remove from memory
+                    self.profiles.remove(profile_to_delete)
 
-                # Select default profile
-                for i, profile in enumerate(self.profiles):
-                    if profile.name == 'default':
-                        self.current_profile = profile
-                        break
+                    # Select default profile
+                    default_profile = None
+                    for i, profile in enumerate(self.profiles):
+                        if profile.name == 'default':
+                            self.current_profile = profile
+                            default_profile = profile
+                            break
 
-                # Reload the list
-                self._reload_profile_list()
+                    # Reload the list
+                    self._reload_profile_list()
 
-                # Emit signal that profiles changed
-                self.profiles_changed.emit()
+                    # Emit profiles_reset to update main window without unsaved changes check
+                    # Deletion was already saved, no need to prompt
+                    if default_profile:
+                        self.profiles_reset.emit(default_profile)
+                else:
+                    # Profile was never saved - reload from config to reset state
+                    from tourboxelite.config_loader import load_profiles
+                    self.profiles = load_profiles()
+
+                    # Select default profile
+                    for profile in self.profiles:
+                        if profile.name == 'default':
+                            self.current_profile = profile
+                            break
+
+                    # Reload the list
+                    self._reload_profile_list()
+
+                    # Emit reset signal to clear modified state without unsaved changes check
+                    self.profiles_reset.emit(self.current_profile)
 
                 # Show success message
                 QMessageBox.information(

@@ -10,13 +10,13 @@ Linux driver for the TourBox Elite - a Bluetooth Low Energy (BLE) input device b
 
 ## Features
 
+- ✅ **Graphical Configuration** - Full-featured Qt6 GUI for visual configuration with live preview
 - ✅ **Bluetooth LE Support** - Wireless connection via BLE
-- ✅ **Full Button Mapping** - All buttons, knobs, scroll wheel, and dial supported
+- ✅ **Full Button Mapping** - All 20 controls configurable (buttons, knobs, scroll wheel, dial)
 - ✅ **Application Profiles** - Different button mappings per application (Wayland only)
+- ✅ **Window Detection** - Automatic profile switching based on focused window
 - ✅ **Systemd Integration** - Runs as a user service, starts on login
-- ✅ **Easy Configuration** - Simple INI-style config file or graphical GUI
-- ✅ **Configuration GUI** - Qt-based graphical interface for visual configuration
-- ✅ **Window Detection** - Automatic profile switching based on focused window (Wayland)
+- ✅ **Flexible Configuration** - Graphical GUI or manual INI-style config file editing
 
 ## Requirements
 
@@ -63,7 +63,8 @@ The installer will:
 2. Install the driver and dependencies
 3. Set up your configuration file
 4. Install and enable the systemd service
-5. Log off and log back on again or reboot
+
+Log off and log back on again or reboot
 
 ### Step 3: Configure Your MAC Address
 
@@ -123,6 +124,8 @@ Without this extension, profile mode will not work on GNOME (the driver will use
 ## Configuration GUI
 
 The installation automatically includes a **graphical configuration tool** that makes it easy to configure button mappings without editing config files manually.
+
+![TourBox Elite Configuration GUI](docs/images/gui-screenshot.png)
 
 ### Running the GUI
 

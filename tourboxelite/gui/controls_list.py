@@ -121,8 +121,8 @@ class ControlsList(QWidget):
 
             # Debug logging
             if not action_text or action_text.isspace():
-                logger.warning(f"Empty action text for {control_name}, using '(none)'")
-                action_text = "(none)"
+                logger.warning(f"Empty action text for {control_name}, using '(unmapped)'")
+                action_text = "(unmapped)"
 
             logger.debug(f"Control {control_name}: '{action_text}'")
 
@@ -169,7 +169,7 @@ class ControlsList(QWidget):
             codes = BUTTON_CODES[control_name]
             if len(codes) == 0:
                 logger.warning(f"Control {control_name} has no codes")
-                return "(none)"
+                return "(unmapped)"
 
             # Get the press code (first in tuple)
             press_code = bytes([codes[0]])
@@ -184,7 +184,7 @@ class ControlsList(QWidget):
             logger.debug(f"Control {control_name}: events={events}")
 
             if not events:
-                return "(none)"
+                return "(unmapped)"
 
             # Convert events to readable text
             parts = []
@@ -211,7 +211,7 @@ class ControlsList(QWidget):
                     rel_name = self._get_rel_name(event_code)
                     result = f"{rel_name}:{value}"
             else:
-                result = "+".join(parts) if parts else "(none)"
+                result = "+".join(parts) if parts else "(unmapped)"
             logger.debug(f"Control {control_name}: final result='{result}'")
             return result
 

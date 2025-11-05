@@ -11,9 +11,8 @@
 4. [Basic Tasks](#basic-tasks)
 5. [Working with Profiles](#working-with-profiles)
 6. [Configuring Button Mappings](#configuring-button-mappings)
-7. [Testing Your Configuration](#testing-your-configuration)
-8. [Tips & Tricks](#tips--tricks)
-9. [Troubleshooting](#troubleshooting)
+7. [Tips & Tricks](#tips--tricks)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -73,6 +72,8 @@ The installation creates a launcher script that automatically activates the virt
 
 ## Understanding the Interface
 
+![TourBox Elite Configuration GUI](images/gui-screenshot.png)
+
 The GUI has a 4-panel layout:
 
 ```
@@ -98,19 +99,19 @@ The GUI has a 4-panel layout:
 - **Highlights controls** when you select them from the list
 - Shows which button you're currently editing
 
-### 2. Controls Configuration (Top-Right)
-
-- **Table showing all 20 controls** with their current mappings
-- Displays human-readable action names (e.g., "Ctrl+C", "Wheel Up")
-- Click any control to **select it for editing**
-- Shows "(unmapped)" for controls with no action assigned
-
-### 3. Profiles (Bottom-Left)
+### 2. Profiles (Bottom-Left)
 
 - **List of all available profiles** with window matching rules
 - The **default profile** is always present and cannot be deleted
 - Shows which windows each profile applies to
 - Buttons to **create**, **edit**, and **delete** profiles
+
+### 3. Controls Configuration (Top-Right)
+
+- **Table showing all 20 controls** with their current mappings
+- Displays human-readable action names (e.g., "Ctrl+C", "Wheel Up")
+- Click any control to **select it for editing**
+- Shows "(unmapped)" for controls with no action assigned
 
 ### 4. Control Editor (Bottom-Right)
 
@@ -118,7 +119,7 @@ The GUI has a 4-panel layout:
 - Choose action type: Keyboard, Mouse Wheel, or None
 - Set modifier keys (Ctrl, Alt, Shift, Super)
 - Select keys or mouse wheel directions
-- **Apply** button saves changes to memory (not to file yet)
+- **Apply** button saves changes to memory (not actually saved to the config file yet)
 
 ### Menu Bar & Toolbar
 
@@ -163,14 +164,14 @@ The GUI has a 4-panel layout:
 
 1. Click the **"+"** button below the Profiles list
 2. In the dialog:
-   - Enter profile name: **"vscode"**
-   - Choose **"Based on selected profile"** (copies default mappings)
-   - Click **OK**
+   - Enter profile name: **"vscode"** and click **OK**
+   - Choose **Yes** if you would like to copy settings for the currently selected profile
 3. The new profile is created and selected
-4. A settings dialog appears:
+4. A dialog appears asking if you would like to set up window matching rules:
+   - Click **Yes** 
    - Click **"Capture Active Window"**
-   - You have 5 seconds - click on VS Code window
-   - The GUI auto-fills: `app_id: code`
+   - I dialog box appears giving you 5 seconds - click on VS Code window
+   - The GUI auto-fills the App ID and Window Class fields
    - Click **Apply**
 5. Customize button mappings for VS Code (see Task 1)
 6. Click **"Save"** to write the profile to config
@@ -184,15 +185,12 @@ The GUI has a 4-panel layout:
 1. Make changes to button mappings (see Task 1)
 2. Click **"Test"** button (toolbar or Ctrl+T)
    - Changes are automatically saved first
-   - Progress dialog shows "Starting driver..."
-   - Driver starts in the background
+   - Click **OK**
    - GUI becomes disabled except for "Stop Test" button
 3. **Press buttons on your physical TourBox**
    - Actions are sent to your system
    - Test that mappings work as expected
 4. Click **"Stop Test"** when done
-   - Progress dialog shows "Stopping driver..."
-   - Driver stops
    - GUI re-enables for further editing
 
 **Result:** You can rapidly iterate: edit → test → edit → test without closing the GUI!
@@ -243,7 +241,6 @@ Profiles activate when the window properties match your rules. You can match by:
 
 - **App ID** - Wayland application identifier (e.g., `code`, `firefox`)
 - **Window Class** - X11/Wayland window class (e.g., `firefox-esr`, `Code`)
-- **Window Title** - Substring match in window title (e.g., "Google Chrome")
 
 **Capturing Window Info Automatically:**
 
@@ -255,10 +252,10 @@ Profiles activate when the window properties match your rules. You can match by:
 6. Click **Apply**
 
 **Tips:**
-- You can use **one, two, or all three** matching fields
-- All filled fields must match for the profile to activate
+- You can use **one, or both** matching fields
+- Any one of the fields must match for the profile to activate
 - Leave fields blank to ignore that matching criterion
-- Window Title is a **substring match** (partial matches work)
+- We recommend you leave/use both matching methods
 
 ### Editing Profiles
 
@@ -275,10 +272,8 @@ Profiles activate when the window properties match your rules. You can match by:
 1. Select the profile to delete
 2. Click the **"-"** button
 3. Confirm deletion in the dialog
-4. Profile is removed from memory
-5. Click **Save** to remove from config file
 
-> **Warning:** Deletion is permanent after saving! The GUI creates backups, but it's safer to export profiles you might want later.
+> **Warning:** Deletion is permanent!
 
 ### Profile Switching
 
@@ -316,8 +311,8 @@ Your TourBox Elite has these controls:
 - `dpad_up`, `dpad_down`, `dpad_left`, `dpad_right`
 
 **Scroll Wheel (3):**
-- `scroll_up` - Scroll wheel forward
-- `scroll_down` - Scroll wheel backward
+- `scroll_up` - Scroll wheel up
+- `scroll_down` - Scroll wheel down
 - `scroll_click` - Press the scroll wheel
 
 **Knob (3):**
@@ -359,11 +354,11 @@ Send a keyboard key press (with optional modifiers).
   - Other: Context Menu
 
 **Examples:**
-- `Ctrl+C` - Check Ctrl, type "c"
-- `Ctrl+Shift+Z` - Check Ctrl and Shift, type "z"
-- `Alt+F4` - Check Alt, select "F4" from dropdown
+- `Ctrl+C` - Click Ctrl, type "c"
+- `Ctrl+Shift+Z` - Click Ctrl and Shift, type "z"
+- `Alt+F4` - Click Alt, select "F4" from dropdown
 - `]` - Just type "]" (closing bracket)
-- `Super` - Check Super only (no key)
+- `Super` - Click Super only (no key)
 
 **Tips:**
 - Either use the **text input** OR the **dropdown**, not both
@@ -392,70 +387,6 @@ The control does nothing when pressed.
 - Disable a button you don't use
 - Temporarily disable a control while testing
 - Prevent accidental presses
-
----
-
-## Testing Your Configuration
-
-### The Test Workflow
-
-The GUI provides a **Test Mode** for rapid iteration:
-
-```
-Edit mappings → Test with device → Adjust → Test again → Save
-```
-
-**Why Test Mode?**
-- See if button mappings work as expected
-- Feel the ergonomics (does it work well in practice?)
-- Verify profile switching works correctly
-- Catch configuration errors before finalizing
-
-### How to Test
-
-1. **Make changes** to button mappings or profiles
-2. Click **"Test"** button (toolbar or Ctrl+T)
-3. Wait for progress dialog: "Starting driver..."
-4. **Try your physical TourBox buttons**
-   - Press buttons, rotate dials, scroll wheel
-   - Actions are sent to your active application
-   - Verify each mapping behaves correctly
-5. If something's wrong:
-   - Click **"Stop Test"**
-   - Edit the mappings
-   - Click **"Test"** again (auto-saves first)
-6. When satisfied, click **"Stop Test"**
-
-### What Happens During Testing
-
-**GUI changes:**
-- Entire interface becomes **disabled (greyed out)**
-- Only **"Stop Test"** button is active
-- Status bar shows: "Testing mode - Driver running"
-- Window title shows profile name
-
-**Behind the scenes:**
-- Your changes are **automatically saved** to the config file
-- The systemd driver service **starts**
-- Driver connects to your TourBox via Bluetooth
-- Driver sends button presses as keyboard/mouse events to Linux
-
-**Why is the GUI disabled?**
-- The driver needs exclusive Bluetooth access to the device
-- The GUI can't connect to the device while driver is running
-- Prevents conflicts and confusion
-
-### Testing Profile Switching
-
-To test if application-specific profiles work:
-
-1. Create a profile with window matching (e.g., for Firefox)
-2. Configure at least one button differently from default
-3. Click **"Test"**
-4. **Switch between applications**:
-   - Open Firefox → press a button → verify it uses Firefox profile
-   - Switch to another app → press button → verify it uses default profile
-5. Check driver logs if switching doesn't work (see Troubleshooting)
 
 ---
 
@@ -735,6 +666,7 @@ knob_ccw = KEY_LEFTCTRL+KEY_MINUS
 # ... etc
 
 [profile:firefox]
+app_id = firefox-esr
 window_class = firefox-esr
 side = KEY_LEFTCTRL+KEY_T
 tall = KEY_LEFTCTRL+KEY_W
@@ -743,7 +675,7 @@ tall = KEY_LEFTCTRL+KEY_W
 
 **Profile sections:**
 - `[profile:name]` - Section header
-- `window_class`, `window_title`, `app_id` - Optional matching rules
+- `window_class`, `app_id` - Optional matching rules
 - Control mappings - One line per control
 
 **Action formats:**
@@ -794,4 +726,3 @@ The GUI preserves comments and formatting when saving!
 For technical details, see:
 - [CONFIG_GUIDE.md](CONFIG_GUIDE.md) - Manual config editing
 - [DEVELOPMENT.md](DEVELOPMENT.md) - Architecture and code
-- [GUI_PRD.md](GUI_PRD.md) - Product requirements

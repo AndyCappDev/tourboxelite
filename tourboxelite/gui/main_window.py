@@ -75,6 +75,7 @@ class TourBoxConfigWindow(QMainWindow):
         self.profile_manager.setMinimumSize(400, 450)
         self.profile_manager.profile_selected.connect(self._on_profile_selected)
         self.profile_manager.profiles_changed.connect(self._on_profiles_changed)
+        self.profile_manager.profiles_reset.connect(self._on_profiles_reset)
         left_layout.addWidget(self.profile_manager, stretch=0)
 
         main_splitter.addWidget(left_widget)
@@ -344,6 +345,12 @@ class TourBoxConfigWindow(QMainWindow):
             elif reply == QMessageBox.Discard:
                 # Discard changes and reload profile list to revert display
                 logger.info(f"Discarding changes to {self.current_profile.name}")
+
+                # IMPORTANT: Clear modifications FIRST before reloading profiles
+                # to prevent infinite loop (reload triggers profile_selected signal)
+                self.modified_mappings = {}
+                self.is_modified = False
+
                 # Reload the current profile to revert UI changes before switching
                 self.controls_list.load_profile(self.current_profile)
                 # Also need to reload profile list to revert any name/window matching changes
@@ -387,6 +394,38 @@ class TourBoxConfigWindow(QMainWindow):
 
         self.statusBar().showMessage(f"Profile '{self.current_profile.name}' settings modified (not saved)")
 
+    def _on_profiles_reset(self, profile):
+        """Handle profiles reset (reload from config without unsaved changes check)
+
+        This is called when deleting an unsaved profile to reset everything
+        to the saved state without prompting for unsaved changes.
+
+        Args:
+            profile: Profile to switch to
+        """
+        logger.info(f"Profiles reset, switching to: {profile.name}")
+
+        # Clear modifications and switch profile
+        self.current_profile = profile
+        self.modified_mappings = {}
+        self.is_modified = False
+        self._update_window_title()
+
+        # Disable Save button, enable Test button
+        self.save_action.setEnabled(False)
+        self.test_action.setEnabled(True)
+
+        self.statusBar().showMessage(f"Profile: {profile.name}")
+
+        # Clear any highlighted control
+        self.controller_view.clear_highlight()
+
+        # Load profile's controls
+        self.controls_list.load_profile(profile)
+
+        # Disable control editor until a control is selected
+        self.control_editor.setEnabled(False)
+
     def _on_control_selected(self, control_name: str):
         """Handle control selection from list
 
@@ -400,7 +439,7 @@ class TourBoxConfigWindow(QMainWindow):
 
         # Get current action from controls list table
         # Find the row for this control
-        current_action = "(none)"
+        current_action = "(unmapped)"
         for row in range(self.controls_list.table.rowCount()):
             item = self.controls_list.table.item(row, 0)
             if item and item.data(Qt.UserRole) == control_name:
@@ -560,10 +599,39 @@ class TourBoxConfigWindow(QMainWindow):
             QMessageBox.warning(self, "No Profile", "No profile is currently selected.")
             return
 
-        # Save first if there are modifications
-        if self.modified_mappings:
+        # Save first if there are modifications (mappings or profile metadata)
+        if self.is_modified:
             logger.info("Saving before test...")
-            success = save_profile(self.current_profile, self.modified_mappings)
+
+            # Check if profile exists in config (could be new, unsaved profile)
+            from .config_writer import profile_exists_in_config
+            original_name = self.profile_original_names.get(id(self.current_profile), self.current_profile.name)
+            profile_exists = profile_exists_in_config(original_name)
+
+            if not profile_exists:
+                # This is a new profile - create it
+                logger.info(f"Creating new profile before test: {self.current_profile.name}")
+                success = create_new_profile(self.current_profile)
+                # Update the original name tracker for the newly created profile
+                if success:
+                    self.profile_original_names[id(self.current_profile)] = self.current_profile.name
+            else:
+                # Existing profile - save metadata and mappings
+                # Determine if profile was renamed
+                old_name = original_name if original_name != self.current_profile.name else None
+
+                # Save profile metadata (name, window matching)
+                metadata_success = save_profile_metadata(self.current_profile, old_name)
+                # Update the original name tracker if profile was renamed
+                if old_name and metadata_success:
+                    self.profile_original_names[id(self.current_profile)] = self.current_profile.name
+
+                # Save control mappings
+                mappings_success = True
+                if self.modified_mappings:
+                    mappings_success = save_profile(self.current_profile, self.modified_mappings)
+
+                success = metadata_success and mappings_success
 
             if not success:
                 QMessageBox.critical(
@@ -572,6 +640,30 @@ class TourBoxConfigWindow(QMainWindow):
                     "Failed to save changes. Cannot test without saving."
                 )
                 return
+
+            # Reload profiles from config to sync in-memory state with saved state
+            logger.info("Reloading profiles from config after save...")
+            current_profile_name = self.current_profile.name  # Remember which profile we're testing
+            profiles = load_profiles()
+
+            # Update the profile_original_names tracking
+            self.profile_original_names = {id(profile): profile.name for profile in profiles}
+
+            # Find the current profile in the reloaded list
+            for profile in profiles:
+                if profile.name == current_profile_name:
+                    self.current_profile = profile
+                    break
+
+            # Update profile manager's profiles list
+            self.profile_manager.profiles = profiles
+
+            # Manually update profile manager's current profile and reselect
+            self.profile_manager.current_profile = self.current_profile
+            self.profile_manager._reload_profile_list()
+
+            # Reload controls list to show saved values
+            self.controls_list.load_profile(self.current_profile)
 
             # Clear modified state
             self.modified_mappings = {}
@@ -811,7 +903,7 @@ class TourBoxConfigWindow(QMainWindow):
             self._stop_testing()
 
         # Check for unsaved changes
-        if self.is_modified and self.modified_mappings:
+        if self.is_modified:
             reply = QMessageBox.question(
                 self,
                 "Unsaved Changes",
@@ -822,8 +914,29 @@ class TourBoxConfigWindow(QMainWindow):
             )
 
             if reply == QMessageBox.Save:
-                # Save the changes
-                success = save_profile(self.current_profile, self.modified_mappings)
+                # Save the changes (both profile metadata and control mappings)
+                from .config_writer import profile_exists_in_config
+                original_name = self.profile_original_names.get(id(self.current_profile), self.current_profile.name)
+                profile_exists = profile_exists_in_config(original_name)
+
+                if not profile_exists:
+                    # This is a new profile - create it
+                    logger.info(f"Creating new profile on close: {self.current_profile.name}")
+                    success = create_new_profile(self.current_profile)
+                else:
+                    # Existing profile - save metadata and mappings
+                    old_name = original_name if original_name != self.current_profile.name else None
+
+                    # Save profile metadata (name, window matching)
+                    metadata_success = save_profile_metadata(self.current_profile, old_name)
+
+                    # Save control mappings
+                    mappings_success = True
+                    if self.modified_mappings:
+                        mappings_success = save_profile(self.current_profile, self.modified_mappings)
+
+                    success = metadata_success and mappings_success
+
                 if not success:
                     reply2 = QMessageBox.critical(
                         self,
