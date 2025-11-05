@@ -88,33 +88,22 @@ read -p "Remove installation directory ($INSTALL_DIR)? (y/N): " -n 1 -r
 echo ""
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo ""
+    echo -e "${BLUE}========================================${NC}"
+    echo -e "${GREEN}✓ Uninstallation Complete!${NC}"
+    echo -e "${BLUE}========================================${NC}"
+    echo ""
     echo "Removing installation directory..."
 
-    # Create a temporary cleanup script that will delete the installation directory
     # We can't delete the directory while this script is running from it,
-    # so we create a separate script that runs after this one exits
-    CLEANUP_SCRIPT="/tmp/tourbox_cleanup_$$.sh"
-
-    cat > "$CLEANUP_SCRIPT" <<EOF
-#!/bin/bash
-# TourBox cleanup script - auto-generated
-sleep 1
-rm -rf "$INSTALL_DIR"
-rm -f "\$0"
-EOF
-
-    chmod +x "$CLEANUP_SCRIPT"
-
-    # Execute cleanup script in background
-    nohup "$CLEANUP_SCRIPT" >/dev/null 2>&1 &
-
-    echo -e "${GREEN}✓${NC} Installation directory removed"
+    # so we use exec to replace this process with a cleanup command
+    cd /tmp
+    exec sh -c "rm -rf '$INSTALL_DIR' && echo 'Installation directory removed.'"
 else
     echo -e "${YELLOW}!${NC} Installation directory kept: $INSTALL_DIR"
+    echo ""
+    echo -e "${BLUE}========================================${NC}"
+    echo -e "${GREEN}✓ Uninstallation Complete!${NC}"
+    echo -e "${BLUE}========================================${NC}"
+    echo ""
 fi
-
-echo ""
-echo -e "${BLUE}========================================${NC}"
-echo -e "${GREEN}✓ Uninstallation Complete!${NC}"
-echo -e "${BLUE}========================================${NC}"
-echo ""
