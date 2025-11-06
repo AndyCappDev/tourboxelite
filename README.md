@@ -10,7 +10,7 @@ Linux driver for the TourBox Elite - a Bluetooth Low Energy (BLE) input device b
 
 ## Features
 
-- ✅ **Graphical Configuration** - Full-featured Qt6 GUI for visual configuration with live preview
+- ✅ **Graphical Configuration** - Full-featured GUI for visual configuration with live preview
 - ✅ **Bluetooth LE Support** - Wireless connection via BLE
 - ✅ **Full Button Mapping** - All 20 controls configurable (buttons, knobs, scroll wheel, dial)
 - ✅ **Application Profiles** - Different button mappings per application (Wayland only)
@@ -24,9 +24,13 @@ Linux driver for the TourBox Elite - a Bluetooth Low Energy (BLE) input device b
 - Python 3.9+
 - Bluetooth support (bluez)
 - Running on Wayland (for app-specific profiles) or X11 (default profile only)
+- **For GUI configuration tool:**
+  - PySide6 >= 6.5.0 (Qt6 for Python)
+  - qasync >= 0.24.0 (async Qt support)
+  - Automatically installed by `install.sh`
 - **For profile mode (app-specific mappings):**
-  - **KDE Plasma:** `kdotool` required (see installation below)
-  - **GNOME:** [Focused Window D-Bus extension](https://extensions.gnome.org/extension/5592/focused-window-d-bus/) required
+  - **KDE Plasma:** `kdotool` required (see installation instructions below)
+  - **GNOME:** [Focused Window D-Bus extension](https://extensions.gnome.org/extension/5592/focused-window-d-bus/) required (see installation instructions below)
   - **Sway/Hyprland:** No additional requirements
 
 ## Quick Install
@@ -134,8 +138,6 @@ After installation, simply run:
 ```bash
 tourbox-gui
 ```
-
-That's it! The launcher script handles everything automatically.
 
 ### What You Can Do with the GUI
 
