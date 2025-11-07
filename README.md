@@ -20,14 +20,28 @@ Linux driver for the TourBox Elite - a Bluetooth Low Energy (BLE) input device b
 
 ## Requirements
 
-- Linux (Debian/Ubuntu tested)
+### System Requirements
+
+- Linux (Debian, Ubuntu, Fedora, Arch tested)
 - Python 3.9+
 - Bluetooth support (bluez)
+- Build tools for compiling Python packages:
+  - **Debian/Ubuntu:** `gcc python3-dev linux-headers-generic`
+  - **Fedora/RHEL:** `gcc python3-devel kernel-headers`
+  - **Arch:** `gcc python linux-headers`
 - Running on Wayland (for app-specific profiles) or X11 (default profile only)
+
+> **Note:** The `install.sh` script will check for these dependencies and tell you what to install if anything is missing.
+
+### Python Dependencies
+
 - **For GUI configuration tool:**
   - PySide6 >= 6.5.0 (Qt6 for Python)
   - qasync >= 0.24.0 (async Qt support)
   - Automatically installed by `install.sh`
+
+### Additional Requirements for Profile Mode
+
 - **For profile mode (app-specific mappings):**
   - **KDE Plasma:** `kdotool` required (see installation instructions below)
   - **GNOME:** [Focused Window D-Bus extension](https://extensions.gnome.org/extension/5592/focused-window-d-bus/) required (see installation instructions below)
@@ -141,10 +155,10 @@ tourbox-gui
 
 ### What You Can Do with the GUI
 
-- **Visual Configuration** - See a diagram of your TourBox with clickable controls
+- **Visual Configuration** - See a diagram of your TourBox with with visual feedback while editing control mappings
 - **Profile Management** - Create, edit, and delete application-specific profiles
-- **Window Matching** - Use "Capture Active Window" to automatically detect window properties
-- **Test Mode** - Test your button mappings with the physical device before saving
+- **Window Matching** - Use "Capture Active Window" to detect windows for application profile matching
+- **Test Mode** - Test your button mappings in your applications without having to quit the configuration GUI
 - **Easy Key Assignment** - Point-and-click interface for keyboard shortcuts and mouse wheel actions
 
 **📖 See the [Complete GUI User Guide](docs/GUI_USER_GUIDE.md) for detailed instructions, tutorials, and troubleshooting.**
@@ -153,7 +167,20 @@ tourbox-gui
 
 ## Manual Installation
 
-If you prefer manual setup:
+If you prefer manual setup, first ensure you have the build dependencies installed:
+
+```bash
+# Debian/Ubuntu
+sudo apt install gcc python3-dev linux-headers-generic bluez python3-pip
+
+# Fedora/RHEL
+sudo dnf install gcc python3-devel kernel-headers bluez python3-pip
+
+# Arch
+sudo pacman -S gcc python linux-headers bluez python-pip
+```
+
+Then proceed with installation:
 
 ```bash
 # 1. Create virtual environment

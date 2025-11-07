@@ -35,34 +35,109 @@ fi
 PYTHON_VERSION=$(python3 --version | awk '{print $2}')
 echo -e "${GREEN}✓${NC} Found Python $PYTHON_VERSION"
 
+# Detect distribution and package manager
+echo ""
+echo "Detecting system..."
+
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    DISTRO_ID="$ID"
+    DISTRO_NAME="$NAME"
+else
+    DISTRO_ID="unknown"
+    DISTRO_NAME="Linux"
+fi
+
+# Determine package manager and package names
+if command -v apt &> /dev/null; then
+    PKG_MANAGER="apt"
+    PKG_INSTALL="sudo apt install"
+    PKG_BLUEZ="bluez"
+    PKG_PIP="python3-pip"
+    PKG_GCC="gcc"
+    PKG_PYTHON_DEV="python3-dev"
+    PKG_KERNEL_HEADERS="linux-headers-generic"
+elif command -v dnf &> /dev/null; then
+    PKG_MANAGER="dnf"
+    PKG_INSTALL="sudo dnf install"
+    PKG_BLUEZ="bluez"
+    PKG_PIP="python3-pip"
+    PKG_GCC="gcc"
+    PKG_PYTHON_DEV="python3-devel"
+    PKG_KERNEL_HEADERS="kernel-headers"
+elif command -v pacman &> /dev/null; then
+    PKG_MANAGER="pacman"
+    PKG_INSTALL="sudo pacman -S"
+    PKG_BLUEZ="bluez"
+    PKG_PIP="python-pip"
+    PKG_GCC="gcc"
+    PKG_PYTHON_DEV="python"
+    PKG_KERNEL_HEADERS="linux-headers"
+else
+    PKG_MANAGER="unknown"
+    PKG_INSTALL="# Use your package manager to install:"
+fi
+
+echo -e "${GREEN}✓${NC} Detected: $DISTRO_NAME ($PKG_MANAGER)"
+
 # Check for required system packages
 echo ""
 echo "Checking system dependencies..."
 
 MISSING_DEPS=()
+MISSING_PKG_NAMES=()
 
 # Check for bluetooth
 if ! command -v bluetoothctl &> /dev/null; then
-    MISSING_DEPS+=("bluez")
+    MISSING_DEPS+=("bluetoothctl")
+    MISSING_PKG_NAMES+=("$PKG_BLUEZ")
 fi
 
 # Check for pip
 if ! python3 -m pip --version &> /dev/null; then
-    MISSING_DEPS+=("python3-pip")
+    MISSING_DEPS+=("pip")
+    MISSING_PKG_NAMES+=("$PKG_PIP")
 fi
 
 # Check for venv module by checking for ensurepip (which is what actually fails)
 if ! python3 -c "import ensurepip" &> /dev/null; then
     # Extract major.minor version (e.g., 3.13 from 3.13.5)
     PYTHON_MM_VERSION=$(echo "$PYTHON_VERSION" | cut -d. -f1,2)
-    MISSING_DEPS+=("python${PYTHON_MM_VERSION}-venv")
+    MISSING_DEPS+=("venv")
+    if [ "$PKG_MANAGER" = "apt" ]; then
+        MISSING_PKG_NAMES+=("python${PYTHON_MM_VERSION}-venv")
+    elif [ "$PKG_MANAGER" = "dnf" ]; then
+        MISSING_PKG_NAMES+=("python${PYTHON_MM_VERSION}-venv")
+    else
+        MISSING_PKG_NAMES+=("python-venv")
+    fi
+fi
+
+# Check for gcc (needed to compile Python packages like evdev)
+if ! command -v gcc &> /dev/null; then
+    MISSING_DEPS+=("gcc")
+    MISSING_PKG_NAMES+=("$PKG_GCC")
+fi
+
+# Check for Python development headers (needed to compile Python packages)
+if ! python3 -c "import sysconfig; import os; exit(0 if os.path.exists(sysconfig.get_path('include')) else 1)" &> /dev/null; then
+    MISSING_DEPS+=("python-dev")
+    MISSING_PKG_NAMES+=("$PKG_PYTHON_DEV")
+fi
+
+# Check for kernel headers (needed for evdev compilation)
+if ! [ -d "/usr/include/linux" ]; then
+    MISSING_DEPS+=("kernel-headers")
+    MISSING_PKG_NAMES+=("$PKG_KERNEL_HEADERS")
 fi
 
 if [ ${#MISSING_DEPS[@]} -gt 0 ]; then
     echo -e "${RED}Missing dependencies: ${MISSING_DEPS[*]}${NC}"
     echo ""
+    echo "These packages are required to compile and run the TourBox driver."
+    echo ""
     echo "Install them with:"
-    echo "  sudo apt install ${MISSING_DEPS[*]}"
+    echo "  $PKG_INSTALL ${MISSING_PKG_NAMES[*]}"
     echo ""
     echo "Then run this installer again:"
     echo "  ./install.sh"
