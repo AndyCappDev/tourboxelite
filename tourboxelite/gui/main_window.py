@@ -581,9 +581,9 @@ class TourBoxConfigWindow(QMainWindow):
             self.is_modified = False
             self._update_window_title()
 
-            # Disable Save/Test buttons
+            # Disable Save button, keep Test enabled
             self.save_action.setEnabled(False)
-            self.test_action.setEnabled(False)
+            self.test_action.setEnabled(True)
 
             # Clean up old backups
             cleanup_old_backups()
