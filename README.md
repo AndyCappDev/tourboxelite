@@ -335,6 +335,23 @@ When you're done testing, restart the service:
 systemctl --user start tourbox
 ```
 
+## Updating
+
+To update to the latest version:
+
+```bash
+cd /path/to/tourboxelite
+git pull
+./install.sh
+```
+
+The installer will automatically:
+- Stop the running service if it's active
+- Update all files and dependencies
+- Ask if you want to restart the service with the new version
+
+**Note:** It's safe to run the installer while the service is running - it will handle stopping and restarting automatically.
+
 ## Uninstall
 
 ```bash

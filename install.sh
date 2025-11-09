@@ -357,6 +357,13 @@ SERVICE_FILE="$SYSTEMD_DIR/tourbox.service"
 
 mkdir -p "$SYSTEMD_DIR"
 
+# Stop service if it's currently running
+if systemctl --user is-active --quiet tourbox; then
+    echo -e "${YELLOW}!${NC} Stopping running service..."
+    systemctl --user stop tourbox
+    echo -e "${GREEN}✓${NC} Service stopped"
+fi
+
 # Create service file
 cat > "$SERVICE_FILE" <<EOF
 [Unit]
