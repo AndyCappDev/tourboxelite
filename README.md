@@ -153,7 +153,7 @@ After installation, simply run:
 tourbox-gui
 ```
 
-You can also run it from the Application Launcher and pin it to your Application Manager after you run it for the first time for easy access.
+You can also run it from the Application Launcher or pin it to your Application Manager after you run it for the first time for easy access.
 
 ### What You Can Do with the GUI
 
