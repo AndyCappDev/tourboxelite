@@ -165,8 +165,6 @@ You can also run it from the Application Launcher or pin it to your Application 
 
 **📖 See the [Complete GUI User Guide](docs/GUI_USER_GUIDE.md) for detailed instructions, tutorials, and troubleshooting.**
 
-> **Note:** The GUI automatically stops the driver when you launch it and restarts it when you exit. This is because both cannot access the device simultaneously via Bluetooth.
-
 ## Manual Installation
 
 If you prefer manual setup, first ensure you have the build dependencies installed:
