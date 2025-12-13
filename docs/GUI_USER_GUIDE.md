@@ -13,7 +13,8 @@
 6. [Configuring Button Mappings](#configuring-button-mappings)
 7. [Using Modifier Buttons](#using-modifier-buttons)
 8. [Tips & Tricks](#tips--tricks)
-9. [Troubleshooting](#troubleshooting)
+9. [Checking for Updates](#checking-for-updates)
+10. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -650,6 +651,29 @@ Speed up your workflow with keyboard shortcuts:
 - **Asterisk (*)** in window title means unsaved changes
 - **"(unmapped)"** in controls list means no action assigned
 - **Status bar** shows what's happening
+
+---
+
+## Checking for Updates
+
+To check if a new version of TourBox Elite is available:
+
+1. Open the GUI: `tourbox-gui`
+2. Click **Help → Check for Updates**
+3. The GUI will check GitHub for the latest version
+4. If an update is available, follow the instructions in the dialog
+
+**What happens:**
+- The GUI fetches version information from GitHub
+- Compares it with your installed version
+- Shows a dialog with the result
+
+**If an update is available:**
+- The dialog shows update instructions with the correct path to your installation
+- Click "View on GitHub" to see the release notes
+- Run the commands shown to update
+
+**Note:** This requires an internet connection. The check only reads version information from GitHub and does not send any data.
 
 ---
 

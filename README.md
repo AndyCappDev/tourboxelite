@@ -21,6 +21,7 @@ Linux driver for the TourBox Elite and Elite Plus by TourBox Tech Inc. This driv
 - ✅ **Full Button Mapping** - All 20 controls configurable (buttons, knobs, scroll wheel, dial)
 - ✅ **Modifier Keys** - Create over 250 unique key combinations per profile using physical buttons as modifiers
 - ✅ **Systemd Integration** - Runs as a user service, starts on login
+- ✅ **Update Checker** - Check for new versions from within the GUI
 
 ## Requirements
 
@@ -197,11 +198,12 @@ You can also run it from the Application Launcher or pin it to your Application 
 
 ### What You Can Do with the GUI
 
-- **Visual Configuration** - See a diagram of your TourBox with with visual feedback while editing control mappings
+- **Visual Configuration** - See a diagram of your TourBox with visual feedback while editing control mappings
 - **Profile Management** - Create, edit, and delete application-specific profiles
 - **Window Matching** - Use "Capture Active Window" to detect windows for application profile matching
 - **Testing** - Test your button mappings in your applications without having to quit the configuration GUI
 - **Easy Key Assignment** - Point-and-click interface for keyboard shortcuts and mouse wheel actions
+- **Check for Updates** - Easily check if a newer version is available (Help → Check for Updates)
 
 **📖 See the [Complete GUI User Guide](docs/GUI_USER_GUIDE.md) for detailed instructions, tutorials, and troubleshooting.**
 

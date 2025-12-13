@@ -134,6 +134,15 @@ class TourBoxConfigWindow(QMainWindow):
         quit_action.triggered.connect(self.close)
         file_menu.addAction(quit_action)
 
+        # Help menu
+        help_menu = menubar.addMenu("&Help")
+
+        # Check for Updates action
+        self.check_updates_action = QAction("Check for &Updates...", self)
+        self.check_updates_action.setStatusTip("Check GitHub for a newer version")
+        self.check_updates_action.triggered.connect(self._check_for_updates)
+        help_menu.addAction(self.check_updates_action)
+
     def _create_toolbar(self):
         """Create the toolbar"""
         toolbar = QToolBar("Main Toolbar")
@@ -809,6 +818,77 @@ class TourBoxConfigWindow(QMainWindow):
                 readable_parts.append(part)
 
         return "+".join(readable_parts)
+
+    def _check_for_updates(self):
+        """Check GitHub for a newer version"""
+        from .update_checker import UpdateChecker
+
+        # Disable menu item during check
+        self.check_updates_action.setEnabled(False)
+        self.statusBar().showMessage("Checking for updates...")
+
+        # Create and start update checker thread
+        self._update_checker = UpdateChecker(self)
+        self._update_checker.update_available.connect(self._on_update_available)
+        self._update_checker.no_update.connect(self._on_no_update)
+        self._update_checker.check_failed.connect(self._on_check_failed)
+        self._update_checker.finished.connect(lambda: self.check_updates_action.setEnabled(True))
+        self._update_checker.start()
+
+    def _on_update_available(self, latest_version: str, current_version: str):
+        """Handle update available signal"""
+        from pathlib import Path
+        import webbrowser
+
+        self.statusBar().showMessage(f"Update available: {latest_version}")
+
+        # Detect install path (3 levels up from main_window.py)
+        install_path = Path(__file__).parent.parent.parent
+
+        # Create dialog with update info
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Update Available")
+        msg.setIcon(QMessageBox.Information)
+        msg.setText(f"A new version is available!\n\n"
+                    f"Current version: {current_version}\n"
+                    f"Latest version: {latest_version}")
+        msg.setInformativeText(
+            f"To update, run these commands:\n\n"
+            f"  cd {install_path}\n"
+            f"  git pull\n"
+            f"  ./install.sh"
+        )
+
+        # Add buttons
+        view_btn = msg.addButton("View on GitHub", QMessageBox.ActionRole)
+        msg.addButton("Close", QMessageBox.RejectRole)
+
+        msg.exec()
+
+        # Handle button click
+        if msg.clickedButton() == view_btn:
+            webbrowser.open("https://github.com/AndyCappDev/tourboxelite/releases")
+
+    def _on_no_update(self, current_version: str):
+        """Handle no update available signal"""
+        self.statusBar().showMessage("You are running the latest version")
+
+        QMessageBox.information(
+            self,
+            "No Updates",
+            f"You are running the latest version ({current_version})."
+        )
+
+    def _on_check_failed(self, error_message: str):
+        """Handle update check failed signal"""
+        self.statusBar().showMessage("Update check failed")
+
+        QMessageBox.warning(
+            self,
+            "Update Check Failed",
+            f"Could not check for updates:\n\n{error_message}\n\n"
+            "Please check your internet connection."
+        )
 
     def keyPressEvent(self, event):
         """Handle keyboard navigation between panes with left/right arrows"""
