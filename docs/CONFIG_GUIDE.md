@@ -286,51 +286,57 @@ knob_click = none               # Disable this button
 
 ## Haptic Feedback Configuration
 
-The TourBox Elite has haptic motors that provide vibration feedback when rotating the knob, scroll wheel, or dial. You can configure haptic strength in the config file.
+The TourBox Elite has haptic motors that provide vibration feedback when rotating the knob, scroll wheel, or dial. You can configure both haptic **strength** (vibration intensity) and **speed** (detent spacing) in the config file.
 
 > **Note:** Haptic feedback is only available on TourBox Elite and Elite Plus. The TourBox Neo does not have haptic motors.
 
-### Global Haptic Setting (Per Profile)
+### Global Haptic Settings (Per Profile)
 
-Set haptic strength for all rotary controls in a profile:
+Set haptic strength and speed for all rotary controls in a profile:
 
 ```ini
 [profile:default]
-haptic = strong    # Options: off, weak, strong
+haptic = strong         # Strength: off, weak, strong
+haptic_speed = fast     # Speed: fast, medium, slow
 ```
 
 ### Per-Dial Haptic Settings
 
-Override the global setting for specific dials:
+Override the global settings for specific dials:
 
 ```ini
 [profile:default]
-haptic = weak              # Global setting
-haptic.knob = strong       # Override for knob only
-haptic.scroll = off        # Override for scroll wheel
-haptic.dial = weak         # Override for dial (same as global, so optional)
+haptic = weak                  # Global strength
+haptic_speed = fast            # Global speed
+haptic.knob = strong           # Override strength for knob
+haptic_speed.knob = slow       # Override speed for knob
+haptic.scroll = off            # Override strength for scroll wheel
+haptic_speed.scroll = medium   # Override speed for scroll wheel
 ```
 
 ### Per-Modifier-Combo Haptic Settings
 
-Set haptic strength for specific modifier+dial combinations:
+Set haptic strength and speed for specific modifier+dial combinations:
 
 ```ini
 [profile:default]
-haptic = weak                   # Global setting
-haptic.knob = strong            # Knob alone uses strong
-haptic.knob.side = off          # side + knob uses no haptic
-haptic.scroll.tall = strong     # tall + scroll uses strong
+haptic = weak                        # Global strength
+haptic_speed = fast                  # Global speed
+haptic.knob = strong                 # Knob alone uses strong
+haptic.knob.side = off               # side + knob uses no haptic
+haptic_speed.knob.side = slow        # side + knob uses slow speed
+haptic.scroll.tall = strong          # tall + scroll uses strong
+haptic_speed.scroll.tall = medium    # tall + scroll uses medium speed
 ```
 
 ### Haptic Priority Order
 
-When determining haptic strength for a rotary event, the driver checks in this order:
+When determining haptic settings for a rotary event, the driver checks in this order (same for both strength and speed):
 
-1. **Per-combo setting** (`haptic.dial.modifier`) - Most specific
-2. **Per-dial setting** (`haptic.dial`) - Dial-specific override
-3. **Global setting** (`haptic`) - Profile-wide default
-4. **Default** - Off (if nothing configured)
+1. **Per-combo setting** (`haptic.dial.modifier` / `haptic_speed.dial.modifier`) - Most specific
+2. **Per-dial setting** (`haptic.dial` / `haptic_speed.dial`) - Dial-specific override
+3. **Global setting** (`haptic` / `haptic_speed`) - Profile-wide default
+4. **Default** - Off for strength, Fast for speed (if nothing configured)
 
 ### Haptic Strength Values
 
@@ -340,16 +346,27 @@ When determining haptic strength for a rotary event, the driver checks in this o
 | `weak` | Subtle vibration |
 | `strong` | Pronounced vibration |
 
+### Haptic Speed Values
+
+| Value | Description |
+|-------|-------------|
+| `fast` | More detents per rotation, finer control |
+| `medium` | Balanced detent spacing |
+| `slow` | Fewer detents per rotation, coarser control |
+
 ### Example: Complete Haptic Configuration
 
 ```ini
 [profile:photo_editing]
 window_class = gimp
 haptic = strong                 # Default: strong feedback
+haptic_speed = fast             # Default: fine control
 
 # Override for specific use cases
 haptic.dial = weak              # Dial for fine adjustments
+haptic_speed.dial = slow        # Fewer detents for sweeping movements
 haptic.knob.tall = off          # No haptic when using tall+knob
+haptic_speed.knob.tall = medium # Medium speed for tall+knob combo
 
 # Button mappings...
 scroll_up = KEY_LEFTCTRL+KEY_EQUAL

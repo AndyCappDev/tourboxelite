@@ -50,6 +50,41 @@ class HapticStrength(Enum):
         return self.name.lower()
 
 
+class HapticSpeed(Enum):
+    """Haptic feedback rotation speed (spacing between detents)
+
+    Lower values = faster rotation (more detents per revolution).
+    Higher values = slower rotation (fewer detents, more spaced out).
+
+    The byte value is OR'd with HapticStrength to form the final config byte.
+    """
+    FAST = 0x00    # More detents, finer control
+    MEDIUM = 0x01  # Balanced
+    SLOW = 0x02    # Fewer detents, coarser control
+
+    @classmethod
+    def from_string(cls, s: str) -> 'HapticSpeed':
+        """Parse from config string
+
+        Args:
+            s: String like 'slow', 'medium', 'fast', or numeric '0', '1', '2'
+
+        Returns:
+            HapticSpeed enum value
+        """
+        if s is None:
+            return cls.FAST
+        mapping = {
+            'fast': cls.FAST, 'high': cls.FAST, '0': cls.FAST,
+            'medium': cls.MEDIUM, 'med': cls.MEDIUM, 'normal': cls.MEDIUM, '1': cls.MEDIUM,
+            'slow': cls.SLOW, 'low': cls.SLOW, '2': cls.SLOW,
+        }
+        return mapping.get(s.lower().strip(), cls.FAST)
+
+    def __str__(self) -> str:
+        return self.name.lower()
+
+
 # Rotary controls that have haptic feedback
 HAPTIC_DIALS = ['knob', 'scroll', 'dial']
 
@@ -135,23 +170,28 @@ _CONFIG_MESSAGE_TEMPLATE = bytes.fromhex(
 class HapticConfig:
     """Per-profile haptic feedback configuration
 
-    Designed for Phase 2 (per-dial, per-modifier) but used by Phase 1
-    with a simpler access pattern (global_setting property).
-
-    Phase 1: Set global_setting to apply same haptic to all dials
-    Phase 2: Set global_setting=None and use dial_settings/combo_settings
+    Supports both global and per-dial/per-combo settings for strength and speed.
+    Per-dial and per-combo settings take precedence over global settings.
     """
-    # Per-dial settings: dial_name -> HapticStrength
+    # Per-dial strength settings: dial_name -> HapticStrength
     # dial_name is 'knob', 'scroll', or 'dial'
     dial_settings: Dict[str, HapticStrength] = field(default_factory=dict)
 
-    # Per-modifier-combo settings: (dial, modifier) -> HapticStrength
+    # Per-dial speed settings: dial_name -> HapticSpeed
+    dial_speed_settings: Dict[str, HapticSpeed] = field(default_factory=dict)
+
+    # Per-modifier-combo strength settings: (dial, modifier) -> HapticStrength
     # modifier is None for unmodified, or button name like 'tall', 'side'
     combo_settings: Dict[Tuple[str, Optional[str]], HapticStrength] = field(default_factory=dict)
 
-    # Phase 1: If set, overrides all per-dial/per-combo settings
-    # When None, uses per-dial/per-combo settings (Phase 2 mode)
+    # Per-modifier-combo speed settings: (dial, modifier) -> HapticSpeed
+    combo_speed_settings: Dict[Tuple[str, Optional[str]], HapticSpeed] = field(default_factory=dict)
+
+    # Global strength setting (profile default)
     global_setting: Optional[HapticStrength] = None
+
+    # Global speed setting (profile default)
+    global_speed: Optional[HapticSpeed] = None
 
     def get_strength(self, dial: str, modifier: Optional[str] = None) -> HapticStrength:
         """Get haptic strength for a specific dial + modifier combo
@@ -163,24 +203,61 @@ class HapticConfig:
         Returns:
             HapticStrength value
         """
-        # Phase 1: global setting overrides everything
-        if self.global_setting is not None:
-            return self.global_setting
-
-        # Phase 2: check combo-specific, then dial-specific, then default
+        # Check combo-specific setting first (modifier + dial)
         key = (dial, modifier)
         if key in self.combo_settings:
             return self.combo_settings[key]
+
+        # Check per-dial setting
         if dial in self.dial_settings:
             return self.dial_settings[dial]
+
+        # Fall back to global setting (profile default)
+        if self.global_setting is not None:
+            return self.global_setting
+
+        # Ultimate fallback
         return HapticStrength.OFF
 
-    def set_global(self, strength: HapticStrength):
-        """Set global haptic strength (Phase 1 mode)
+    def get_speed(self, dial: str = None, modifier: Optional[str] = None) -> HapticSpeed:
+        """Get haptic speed for a specific dial + modifier combo
+
+        Args:
+            dial: 'knob', 'scroll', or 'dial'
+            modifier: modifier button name or None for unmodified
+
+        Returns:
+            HapticSpeed value
+        """
+        # Check combo-specific setting first (modifier + dial)
+        if dial and modifier:
+            key = (dial, modifier)
+            if key in self.combo_speed_settings:
+                return self.combo_speed_settings[key]
+
+        # Check per-dial setting
+        if dial and dial in self.dial_speed_settings:
+            return self.dial_speed_settings[dial]
+
+        # Fall back to global setting (profile default)
+        if self.global_speed is not None:
+            return self.global_speed
+
+        # Ultimate fallback
+        return HapticSpeed.FAST
+
+    def set_global(self, strength: HapticStrength, speed: Optional[HapticSpeed] = None):
+        """Set global haptic strength and optionally speed (Phase 1 mode)
 
         This overrides any per-dial or per-combo settings.
+
+        Args:
+            strength: HapticStrength value
+            speed: Optional HapticSpeed value (None to keep existing)
         """
         self.global_setting = strength
+        if speed is not None:
+            self.global_speed = speed
 
     def set_dial(self, dial: str, strength: HapticStrength):
         """Set per-dial haptic strength (Phase 2)
@@ -195,7 +272,7 @@ class HapticConfig:
         self.dial_settings[dial] = strength
 
     def set_combo(self, dial: str, modifier: Optional[str], strength: HapticStrength):
-        """Set per-combo haptic strength (Phase 2)
+        """Set per-combo haptic strength
 
         Args:
             dial: 'knob', 'scroll', or 'dial'
@@ -203,6 +280,28 @@ class HapticConfig:
             strength: HapticStrength value
         """
         self.combo_settings[(dial, modifier)] = strength
+
+    def set_dial_speed(self, dial: str, speed: HapticSpeed):
+        """Set per-dial haptic speed
+
+        Args:
+            dial: 'knob', 'scroll', or 'dial'
+            speed: HapticSpeed value
+        """
+        if dial not in HAPTIC_DIALS:
+            logger.warning(f"Unknown dial: {dial}")
+            return
+        self.dial_speed_settings[dial] = speed
+
+    def set_combo_speed(self, dial: str, modifier: Optional[str], speed: HapticSpeed):
+        """Set per-combo haptic speed
+
+        Args:
+            dial: 'knob', 'scroll', or 'dial'
+            modifier: modifier button name or None
+            speed: HapticSpeed value
+        """
+        self.combo_speed_settings[(dial, modifier)] = speed
 
     def is_global_mode(self) -> bool:
         """Check if in global mode (Phase 1) vs per-dial mode (Phase 2)"""
@@ -215,19 +314,27 @@ class HapticConfig:
         """
         return self.global_setting if self.global_setting is not None else HapticStrength.OFF
 
+    def get_effective_speed(self) -> HapticSpeed:
+        """Get effective global speed setting for display purposes
+
+        Returns global_speed if set, otherwise FAST
+        """
+        return self.global_speed if self.global_speed is not None else HapticSpeed.FAST
+
     @classmethod
     def default_off(cls) -> 'HapticConfig':
         """Create config with all haptics off (default for Neo/unknown devices)"""
-        return cls(global_setting=HapticStrength.OFF)
+        return cls(global_setting=HapticStrength.OFF, global_speed=HapticSpeed.FAST)
 
     @classmethod
-    def default_global(cls, strength: HapticStrength) -> 'HapticConfig':
+    def default_global(cls, strength: HapticStrength, speed: HapticSpeed = HapticSpeed.FAST) -> 'HapticConfig':
         """Create config with global setting (Phase 1 style)"""
-        return cls(global_setting=strength)
+        return cls(global_setting=strength, global_speed=speed)
 
     def __repr__(self) -> str:
         if self.global_setting is not None:
-            return f"HapticConfig(global={self.global_setting})"
+            speed_str = f", speed={self.global_speed}" if self.global_speed else ""
+            return f"HapticConfig(global={self.global_setting}{speed_str})"
         else:
             dials = ', '.join(f"{d}={s}" for d, s in self.dial_settings.items())
             combos = len(self.combo_settings)
@@ -242,6 +349,11 @@ def build_config_message(haptic_config: Optional[HapticConfig] = None) -> bytes:
 
     Returns:
         94-byte config message ready to send to device
+
+    The byte at each offset combines strength (bits 2-3) and speed (bits 0-1):
+        - Strength: OFF=0x00, WEAK=0x04, STRONG=0x08
+        - Speed: FAST=0x00, MEDIUM=0x01, SLOW=0x02
+        - Combined: strength | speed (e.g., STRONG+SLOW = 0x08 | 0x02 = 0x0A)
     """
     if haptic_config is None:
         haptic_config = HapticConfig.default_off()
@@ -253,9 +365,9 @@ def build_config_message(haptic_config: Optional[HapticConfig] = None) -> bytes:
     for (dial, modifier), offset in HAPTIC_BYTE_OFFSETS.items():
         if offset < len(msg):
             strength = haptic_config.get_strength(dial, modifier)
-            # Preserve existing speed bits (lower 2 bits), set haptic bits (bits 2-3)
-            # Currently we don't use speed settings, so just set the haptic value
-            msg[offset] = strength.value
+            speed = haptic_config.get_speed(dial, modifier)
+            # Combine strength (bits 2-3) and speed (bits 0-1)
+            msg[offset] = strength.value | speed.value
 
     return bytes(msg)
 

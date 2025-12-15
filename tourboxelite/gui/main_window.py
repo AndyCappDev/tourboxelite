@@ -44,7 +44,9 @@ class TourBoxConfigWindow(QMainWindow):
         self.modified_comments = {}  # control_name -> comment_string
         self.modified_modifiers = {}  # control_name -> modifier_config
         self.modified_haptic = {}  # dial_name -> HapticStrength (None means use profile default)
+        self.modified_haptic_speed = {}  # dial_name -> HapticSpeed (None means use profile default)
         self.modified_combo_haptic = {}  # (modifier_name, dial_name) -> HapticStrength
+        self.modified_combo_haptic_speed = {}  # (modifier_name, dial_name) -> HapticSpeed
         self.is_modified = False
         self.profile_original_names = {}  # Track original names of profiles (for renames)
 
@@ -313,7 +315,9 @@ class TourBoxConfigWindow(QMainWindow):
         self.modified_comments = {}
         self.modified_modifiers = {}
         self.modified_haptic = {}
+        self.modified_haptic_speed = {}
         self.modified_combo_haptic = {}
+        self.modified_combo_haptic_speed = {}
         self.is_modified = False
         self._update_window_title()
 
@@ -359,7 +363,9 @@ class TourBoxConfigWindow(QMainWindow):
         self.modified_comments = {}
         self.modified_modifiers = {}
         self.modified_haptic = {}
+        self.modified_haptic_speed = {}
         self.modified_combo_haptic = {}
+        self.modified_combo_haptic_speed = {}
         self.is_modified = False
         self._update_window_title()
 
@@ -418,8 +424,9 @@ class TourBoxConfigWindow(QMainWindow):
                     combo_comment = self.current_profile.modifier_combo_comments.get((mod, ctrl), "")
                     modifier_combos[ctrl] = (action_str, combo_comment)
 
-        # Get haptic setting for rotary controls
+        # Get haptic settings for rotary controls
         haptic_strength = None
+        haptic_speed = None
         dial_name = ROTARY_TO_DIAL.get(control_name)
         if dial_name and self.current_profile:
             # Check modified_haptic first, then profile's dial_settings
@@ -427,7 +434,12 @@ class TourBoxConfigWindow(QMainWindow):
                 haptic_strength = self.modified_haptic[dial_name]
             elif dial_name in self.current_profile.haptic_config.dial_settings:
                 haptic_strength = self.current_profile.haptic_config.dial_settings[dial_name]
-            # Note: haptic_strength=None means "use profile default"
+            # Check modified_haptic_speed first, then profile's dial_speed_settings
+            if dial_name in self.modified_haptic_speed:
+                haptic_speed = self.modified_haptic_speed[dial_name]
+            elif dial_name in self.current_profile.haptic_config.dial_speed_settings:
+                haptic_speed = self.current_profile.haptic_config.dial_speed_settings[dial_name]
+            # Note: None values mean "use profile default"
 
         # Load into editor
         self.control_editor.load_control(
@@ -435,7 +447,8 @@ class TourBoxConfigWindow(QMainWindow):
             current_action,
             comment=comment,
             modifier_combos=modifier_combos,
-            haptic_strength=haptic_strength
+            haptic_strength=haptic_strength,
+            haptic_speed=haptic_speed
         )
 
         # Update status bar
@@ -555,17 +568,19 @@ class TourBoxConfigWindow(QMainWindow):
         else:
             self.statusBar().showMessage(f"Modifier removed: {control_name} (not saved)")
 
-    def _on_haptic_changed(self, dial_name: str, haptic_strength):
+    def _on_haptic_changed(self, dial_name: str, haptic_strength, haptic_speed):
         """Handle haptic setting change from editor
 
         Args:
             dial_name: Name of the dial ('knob', 'scroll', or 'dial')
             haptic_strength: HapticStrength or None (None = use profile default)
+            haptic_speed: HapticSpeed or None (None = use profile default)
         """
-        logger.info(f"Haptic changed: {dial_name} -> {haptic_strength}")
+        logger.info(f"Haptic changed: {dial_name} -> strength={haptic_strength}, speed={haptic_speed}")
 
-        # Track the modification
+        # Track the modifications
         self.modified_haptic[dial_name] = haptic_strength
+        self.modified_haptic_speed[dial_name] = haptic_speed
         self.is_modified = True
         self._update_window_title()
 
@@ -574,18 +589,20 @@ class TourBoxConfigWindow(QMainWindow):
 
         self.statusBar().showMessage(f"Haptic modified: {dial_name} (not saved)")
 
-    def _on_combo_haptic_changed(self, modifier_name: str, dial_name: str, haptic_strength):
+    def _on_combo_haptic_changed(self, modifier_name: str, dial_name: str, haptic_strength, haptic_speed):
         """Handle combo haptic setting change from editor
 
         Args:
             modifier_name: Name of the modifier button (e.g., 'side')
             dial_name: Name of the dial ('knob', 'scroll', or 'dial')
             haptic_strength: HapticStrength or None (None = use profile default)
+            haptic_speed: HapticSpeed or None (None = use profile default)
         """
-        logger.info(f"Combo haptic changed: {modifier_name}+{dial_name} -> {haptic_strength}")
+        logger.info(f"Combo haptic changed: {modifier_name}+{dial_name} -> strength={haptic_strength}, speed={haptic_speed}")
 
-        # Track the modification
+        # Track the modifications
         self.modified_combo_haptic[(modifier_name, dial_name)] = haptic_strength
+        self.modified_combo_haptic_speed[(modifier_name, dial_name)] = haptic_speed
         self.is_modified = True
         self._update_window_title()
 
@@ -639,20 +656,32 @@ class TourBoxConfigWindow(QMainWindow):
         logger.debug(f"Modified comments: {self.modified_comments}")
         logger.debug(f"Modified modifiers: {self.modified_modifiers}")
         logger.debug(f"Modified haptic: {self.modified_haptic}")
+        logger.debug(f"Modified haptic speed: {self.modified_haptic_speed}")
         logger.debug(f"Modified combo haptic: {self.modified_combo_haptic}")
+        logger.debug(f"Modified combo haptic speed: {self.modified_combo_haptic_speed}")
 
         # Apply modifications to the profile object
-        # Apply per-dial haptic settings
+        # Apply per-dial haptic strength settings
         for dial_name, haptic_strength in self.modified_haptic.items():
             if haptic_strength is None:
                 # "Use Profile Default" - remove per-dial setting
                 if dial_name in self.current_profile.haptic_config.dial_settings:
                     del self.current_profile.haptic_config.dial_settings[dial_name]
             else:
-                # Set per-dial haptic
+                # Set per-dial haptic strength
                 self.current_profile.haptic_config.dial_settings[dial_name] = haptic_strength
 
-        # Apply per-combo haptic settings (modifier + dial combinations)
+        # Apply per-dial haptic speed settings
+        for dial_name, haptic_speed in self.modified_haptic_speed.items():
+            if haptic_speed is None:
+                # "Use Profile Default" - remove per-dial speed setting
+                if dial_name in self.current_profile.haptic_config.dial_speed_settings:
+                    del self.current_profile.haptic_config.dial_speed_settings[dial_name]
+            else:
+                # Set per-dial haptic speed
+                self.current_profile.haptic_config.dial_speed_settings[dial_name] = haptic_speed
+
+        # Apply per-combo haptic strength settings (modifier + dial combinations)
         for (modifier_name, dial_name), haptic_strength in self.modified_combo_haptic.items():
             combo_key = (dial_name, modifier_name)  # HapticConfig uses (dial, modifier)
             if haptic_strength is None:
@@ -660,8 +689,19 @@ class TourBoxConfigWindow(QMainWindow):
                 if combo_key in self.current_profile.haptic_config.combo_settings:
                     del self.current_profile.haptic_config.combo_settings[combo_key]
             else:
-                # Set per-combo haptic
+                # Set per-combo haptic strength
                 self.current_profile.haptic_config.combo_settings[combo_key] = haptic_strength
+
+        # Apply per-combo haptic speed settings (modifier + dial combinations)
+        for (modifier_name, dial_name), haptic_speed in self.modified_combo_haptic_speed.items():
+            combo_key = (dial_name, modifier_name)  # HapticConfig uses (dial, modifier)
+            if haptic_speed is None:
+                # "Use Profile Default" - remove per-combo speed setting
+                if combo_key in self.current_profile.haptic_config.combo_speed_settings:
+                    del self.current_profile.haptic_config.combo_speed_settings[combo_key]
+            else:
+                # Set per-combo haptic speed
+                self.current_profile.haptic_config.combo_speed_settings[combo_key] = haptic_speed
 
         # Apply comments
         for control_name, comment in self.modified_comments.items():
@@ -801,7 +841,9 @@ class TourBoxConfigWindow(QMainWindow):
             self.modified_comments = {}
             self.modified_modifiers = {}
             self.modified_haptic = {}
+            self.modified_haptic_speed = {}
             self.modified_combo_haptic = {}
+            self.modified_combo_haptic_speed = {}
             self.is_modified = False
             self._update_window_title()
 

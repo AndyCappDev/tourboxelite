@@ -15,7 +15,7 @@ from typing import Dict, List, Tuple, Optional, Set
 from dataclasses import dataclass, field
 from evdev import ecodes as e
 
-from .haptic import HapticConfig, HapticStrength
+from .haptic import HapticConfig, HapticStrength, HapticSpeed
 
 logger = logging.getLogger(__name__)
 
@@ -450,7 +450,8 @@ def load_profiles(config_path: str = None) -> List[Profile]:
             if modifier_mappings:
                 logger.info(f"  Modifier combos: {len(modifier_mappings)}")
             if haptic_config.global_setting is not None:
-                logger.info(f"  Haptic: {haptic_config.global_setting}")
+                speed_str = f", speed={haptic_config.global_speed}" if haptic_config.global_speed else ""
+                logger.info(f"  Haptic: {haptic_config.global_setting}{speed_str}")
 
     return profiles
 
@@ -640,9 +641,12 @@ def parse_mapping_comments(config: configparser.ConfigParser, section_name: str)
 def parse_haptic_config(config: configparser.ConfigParser, section_name: str) -> HapticConfig:
     """Parse haptic configuration from a profile section
 
-    Supports both Phase 1 (global) and Phase 2 (per-dial, per-combo) formats:
-    - Phase 1: haptic = weak
-    - Phase 2: haptic.knob = strong, haptic.knob.tall = weak
+    Supports global, per-dial, and per-combo formats for both strength and speed:
+    - Global: haptic = weak, haptic_speed = medium
+    - Per-dial strength: haptic.knob = strong
+    - Per-dial speed: haptic_speed.knob = slow
+    - Per-combo strength: haptic.knob.tall = weak
+    - Per-combo speed: haptic_speed.knob.tall = medium
 
     Args:
         config: ConfigParser instance
@@ -652,36 +656,53 @@ def parse_haptic_config(config: configparser.ConfigParser, section_name: str) ->
         HapticConfig with parsed settings
     """
     haptic_config = HapticConfig()
-    has_per_dial_settings = False
 
     for key, value in config[section_name].items():
         if key == 'haptic':
-            # Global profile haptic setting (Phase 1)
+            # Global profile haptic strength setting
             haptic_config.global_setting = HapticStrength.from_string(value)
             logger.debug(f"Parsed global haptic: {value} -> {haptic_config.global_setting}")
+
+        elif key == 'haptic_speed':
+            # Global haptic speed setting
+            haptic_config.global_speed = HapticSpeed.from_string(value)
+            logger.debug(f"Parsed global haptic speed: {value} -> {haptic_config.global_speed}")
 
         elif key.startswith('haptic.'):
             parts = key.split('.')
             if len(parts) == 2:
-                # Per-dial: haptic.knob = weak
+                # Per-dial strength: haptic.knob = weak
                 dial = parts[1]
                 strength = HapticStrength.from_string(value)
                 haptic_config.dial_settings[dial] = strength
-                has_per_dial_settings = True
                 logger.debug(f"Parsed dial haptic: {dial} = {strength}")
 
             elif len(parts) == 3:
-                # Per-combo: haptic.knob.tall = strong
+                # Per-combo strength: haptic.knob.tall = strong
                 dial, modifier = parts[1], parts[2]
                 strength = HapticStrength.from_string(value)
                 haptic_config.combo_settings[(dial, modifier)] = strength
-                has_per_dial_settings = True
                 logger.debug(f"Parsed combo haptic: {dial}.{modifier} = {strength}")
 
-    # If per-dial/per-combo settings exist, clear global_setting to enable Phase 2 mode
-    if has_per_dial_settings and haptic_config.global_setting is not None:
-        logger.info("Per-dial haptic settings found, switching to Phase 2 mode (ignoring global)")
-        haptic_config.global_setting = None
+        elif key.startswith('haptic_speed.'):
+            parts = key.split('.')
+            if len(parts) == 2:
+                # Per-dial speed: haptic_speed.knob = slow
+                dial = parts[1]
+                speed = HapticSpeed.from_string(value)
+                haptic_config.dial_speed_settings[dial] = speed
+                logger.debug(f"Parsed dial haptic speed: {dial} = {speed}")
+
+            elif len(parts) == 3:
+                # Per-combo speed: haptic_speed.knob.tall = medium
+                dial, modifier = parts[1], parts[2]
+                speed = HapticSpeed.from_string(value)
+                haptic_config.combo_speed_settings[(dial, modifier)] = speed
+                logger.debug(f"Parsed combo haptic speed: {dial}.{modifier} = {speed}")
+
+    # Note: global_setting is preserved as the default fallback for dials
+    # that don't have a specific per-dial setting ("Use Profile Default").
+    # Per-dial and per-combo settings take precedence over global settings.
 
     return haptic_config
 

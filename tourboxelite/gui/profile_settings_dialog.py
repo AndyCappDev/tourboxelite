@@ -16,7 +16,7 @@ from PySide6.QtGui import QFont
 # Import from existing driver code
 from tourboxelite.config_loader import Profile
 from tourboxelite.window_monitor import WaylandWindowMonitor, WindowInfo
-from tourboxelite.haptic import HapticStrength
+from tourboxelite.haptic import HapticStrength, HapticSpeed
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,7 @@ class ProfileSettingsDialog(QDialog):
         self.result_app_id = profile.app_id or ""
         self.result_window_class = profile.window_class or ""
         self.result_haptic_strength = profile.haptic_config.get_effective_global()
+        self.result_haptic_speed = profile.haptic_config.get_effective_speed()
 
         self._init_ui()
         self.setMinimumWidth(500)
@@ -112,10 +113,25 @@ class ProfileSettingsDialog(QDialog):
         if index >= 0:
             self.haptic_combo.setCurrentIndex(index)
 
-        haptic_layout.addRow("Dial Feedback:", self.haptic_combo)
+        haptic_layout.addRow("Strength:", self.haptic_combo)
+
+        # Speed dropdown
+        self.haptic_speed_combo = QComboBox()
+        self.haptic_speed_combo.addItem("Fast (more detents)", HapticSpeed.FAST)
+        self.haptic_speed_combo.addItem("Medium", HapticSpeed.MEDIUM)
+        self.haptic_speed_combo.addItem("Slow (fewer detents)", HapticSpeed.SLOW)
+
+        # Set current speed value from profile
+        current_speed = self.result_haptic_speed
+        speed_index = self.haptic_speed_combo.findData(current_speed)
+        if speed_index >= 0:
+            self.haptic_speed_combo.setCurrentIndex(speed_index)
+
+        haptic_layout.addRow("Speed:", self.haptic_speed_combo)
 
         haptic_info = QLabel(
-            "Controls vibration feedback for rotary controls (knob, scroll, dial).\n"
+            "Strength controls vibration intensity. Speed controls how spaced out\n"
+            "the detents feel when rotating dials (slower = fewer clicks per turn).\n"
             "Only available on TourBox Elite. Neo models do not have haptic motors."
         )
         haptic_info.setWordWrap(True)
@@ -266,6 +282,7 @@ class ProfileSettingsDialog(QDialog):
         self.result_app_id = self.app_id_edit.text().strip()
         self.result_window_class = self.window_class_edit.text().strip()
         self.result_haptic_strength = self.haptic_combo.currentData()
+        self.result_haptic_speed = self.haptic_speed_combo.currentData()
 
         # Accept the dialog
         self.accept()
@@ -274,11 +291,12 @@ class ProfileSettingsDialog(QDialog):
         """Get the edited profile settings
 
         Returns:
-            Tuple of (name, app_id, window_class, haptic_strength)
+            Tuple of (name, app_id, window_class, haptic_strength, haptic_speed)
         """
         return (
             self.result_profile_name,
             self.result_app_id,
             self.result_window_class,
-            self.result_haptic_strength
+            self.result_haptic_strength,
+            self.result_haptic_speed
         )

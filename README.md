@@ -1,6 +1,6 @@
 # TourBox Elite / Elite Plus Linux Driver
 
-**Version 2.2.0**
+**Version 2.2.1**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform: Linux](https://img.shields.io/badge/platform-linux-lightgrey.svg)](https://www.linux.org/)

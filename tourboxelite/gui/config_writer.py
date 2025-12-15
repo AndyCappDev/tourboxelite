@@ -13,7 +13,7 @@ from datetime import datetime
 from evdev import ecodes as e
 
 from tourboxelite.config_loader import get_config_path, BUTTON_CODES, Profile
-from tourboxelite.haptic import HapticStrength
+from tourboxelite.haptic import HapticStrength, HapticSpeed
 
 logger = logging.getLogger(__name__)
 
@@ -546,14 +546,15 @@ def save_haptic_config(profile: Profile) -> bool:
         if section_end < 0:
             section_end = len(lines)
 
-        # First pass: Remove all old haptic lines
+        # First pass: Remove all old haptic lines (strength and speed, global and per-dial/per-combo)
         i = section_start + 1
         while i < section_end:
             line = lines[i]
             if '=' in line:
                 key = line.split('=')[0].strip()
-                # Remove global haptic and per-dial/per-combo haptic settings
-                if key == 'haptic' or key.startswith('haptic.'):
+                # Remove global and per-dial/per-combo haptic strength and speed settings
+                if (key == 'haptic' or key == 'haptic_speed' or
+                    key.startswith('haptic.') or key.startswith('haptic_speed.')):
                     del lines[i]
                     section_end -= 1
                     continue
@@ -584,18 +585,41 @@ def save_haptic_config(profile: Profile) -> bool:
             insert_pos += 1
             section_end += 1
 
-        # Phase 2: Add per-dial settings
+        # Add global haptic speed if set (Phase 1)
+        if profile.haptic_config.global_speed is not None:
+            speed_value = str(profile.haptic_config.global_speed)
+            lines.insert(insert_pos, f"haptic_speed = {speed_value}\n")
+            logger.debug(f"Added haptic_speed = {speed_value}")
+            insert_pos += 1
+            section_end += 1
+
+        # Add per-dial strength settings
         for dial, strength in profile.haptic_config.dial_settings.items():
             lines.insert(insert_pos, f"haptic.{dial} = {strength}\n")
             logger.debug(f"Added haptic.{dial} = {strength}")
             insert_pos += 1
             section_end += 1
 
-        # Phase 2: Add per-combo settings
+        # Add per-dial speed settings
+        for dial, speed in profile.haptic_config.dial_speed_settings.items():
+            lines.insert(insert_pos, f"haptic_speed.{dial} = {speed}\n")
+            logger.debug(f"Added haptic_speed.{dial} = {speed}")
+            insert_pos += 1
+            section_end += 1
+
+        # Add per-combo strength settings
         for (dial, modifier), strength in profile.haptic_config.combo_settings.items():
             if modifier:
                 lines.insert(insert_pos, f"haptic.{dial}.{modifier} = {strength}\n")
                 logger.debug(f"Added haptic.{dial}.{modifier} = {strength}")
+                insert_pos += 1
+                section_end += 1
+
+        # Add per-combo speed settings
+        for (dial, modifier), speed in profile.haptic_config.combo_speed_settings.items():
+            if modifier:
+                lines.insert(insert_pos, f"haptic_speed.{dial}.{modifier} = {speed}\n")
+                logger.debug(f"Added haptic_speed.{dial}.{modifier} = {speed}")
                 insert_pos += 1
                 section_end += 1
 

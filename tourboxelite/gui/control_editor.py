@@ -16,7 +16,7 @@ from PySide6.QtCore import Signal, Qt
 from evdev import ecodes as e
 from tourboxelite.config_loader import VALID_MODIFIER_BUTTONS
 from tourboxelite.gui.ui_constants import TABLE_ROW_HEIGHT_MULTIPLIER, TEXT_EDIT_HEIGHT_MULTIPLIER
-from tourboxelite.haptic import HapticStrength
+from tourboxelite.haptic import HapticStrength, HapticSpeed
 
 logger = logging.getLogger(__name__)
 
@@ -140,11 +140,12 @@ class ComboConfigDialog(QDialog):
 
     def __init__(self, parent=None, modifier_name: str = "", control_name: str = "",
                  action: str = "", comment: str = "", exclude_controls: set = None,
-                 haptic_strength: HapticStrength = None):
+                 haptic_strength: HapticStrength = None, haptic_speed: HapticSpeed = None):
         super().__init__(parent)
         self.setWindowTitle("Configure Modifier Combination")
         self.setMinimumWidth(500)
-        self.result_haptic = haptic_strength  # Track haptic setting
+        self.result_haptic = haptic_strength  # Track haptic strength setting
+        self.result_haptic_speed = haptic_speed  # Track haptic speed setting
 
         layout = QVBoxLayout(self)
 
@@ -310,8 +311,9 @@ class ComboConfigDialog(QDialog):
         self.haptic_group = QGroupBox("Haptic Feedback")
         haptic_layout = QVBoxLayout(self.haptic_group)
 
-        haptic_row = QHBoxLayout()
-        haptic_row.addWidget(QLabel("Strength:"))
+        # Strength row
+        haptic_strength_row = QHBoxLayout()
+        haptic_strength_row.addWidget(QLabel("Strength:"))
         self.haptic_combo = QComboBox()
         self.haptic_combo.addItem("Use Profile Default", None)
         self.haptic_combo.addItem("Off", HapticStrength.OFF)
@@ -325,9 +327,27 @@ class ComboConfigDialog(QDialog):
             index = self.haptic_combo.findData(haptic_strength)
             if index >= 0:
                 self.haptic_combo.setCurrentIndex(index)
-        haptic_row.addWidget(self.haptic_combo)
-        haptic_row.addStretch()
-        haptic_layout.addLayout(haptic_row)
+        haptic_strength_row.addWidget(self.haptic_combo)
+        haptic_strength_row.addStretch()
+        haptic_layout.addLayout(haptic_strength_row)
+
+        # Speed row
+        haptic_speed_row = QHBoxLayout()
+        haptic_speed_row.addWidget(QLabel("Speed:"))
+        self.haptic_speed_combo = QComboBox()
+        self.haptic_speed_combo.addItem("Use Profile Default", None)
+        self.haptic_speed_combo.addItem("Fast (more detents)", HapticSpeed.FAST)
+        self.haptic_speed_combo.addItem("Medium", HapticSpeed.MEDIUM)
+        self.haptic_speed_combo.addItem("Slow (fewer detents)", HapticSpeed.SLOW)
+        self.haptic_speed_combo.setMinimumHeight(int(fm_haptic.lineSpacing() * TEXT_EDIT_HEIGHT_MULTIPLIER))
+        # Set initial value
+        if haptic_speed is not None:
+            speed_index = self.haptic_speed_combo.findData(haptic_speed)
+            if speed_index >= 0:
+                self.haptic_speed_combo.setCurrentIndex(speed_index)
+        haptic_speed_row.addWidget(self.haptic_speed_combo)
+        haptic_speed_row.addStretch()
+        haptic_layout.addLayout(haptic_speed_row)
 
         haptic_info = QLabel(
             "Haptic feedback for this modifier+dial combination."
@@ -504,8 +524,12 @@ class ComboConfigDialog(QDialog):
         return self.comment_text.toPlainText().strip()
 
     def get_haptic(self) -> Optional[HapticStrength]:
-        """Get haptic setting (None = use profile default)"""
+        """Get haptic strength setting (None = use profile default)"""
         return self.haptic_combo.currentData()
+
+    def get_haptic_speed(self) -> Optional[HapticSpeed]:
+        """Get haptic speed setting (None = use profile default)"""
+        return self.haptic_speed_combo.currentData()
 
 
 class ControlEditor(QWidget):
@@ -516,14 +540,15 @@ class ControlEditor(QWidget):
     comment_changed = Signal(str, str)  # control_name, comment
     modifier_config_changed = Signal(str, dict)  # control_name, modifier_config
     combo_selected = Signal(str)  # combo_control_name (control selected from Modifier Combinations table)
-    haptic_changed = Signal(str, object)  # dial_name ('knob'/'scroll'/'dial'), HapticStrength or None
-    combo_haptic_changed = Signal(str, str, object)  # modifier_name, dial_name, HapticStrength or None
+    haptic_changed = Signal(str, object, object)  # dial_name, HapticStrength or None, HapticSpeed or None
+    combo_haptic_changed = Signal(str, str, object, object)  # modifier_name, dial_name, HapticStrength or None, HapticSpeed or None
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.current_control = None
         self.current_dial = None  # Track which dial we're editing (for haptic)
-        self.combo_haptics = {}  # Track haptic settings for combos: (modifier, dial) -> HapticStrength
+        self.combo_haptics = {}  # Track haptic strength for combos: (modifier, dial) -> HapticStrength
+        self.combo_haptic_speeds = {}  # Track haptic speed for combos: (modifier, dial) -> HapticSpeed
         self._init_ui()
 
     def _init_ui(self):
@@ -663,6 +688,7 @@ class ControlEditor(QWidget):
         haptic_layout = QVBoxLayout(self.haptic_group)
 
         haptic_row = QHBoxLayout()
+        # Strength dropdown
         haptic_row.addWidget(QLabel("Strength:"))
         self.haptic_combo = QComboBox()
         self.haptic_combo.addItem("Use Profile Default", None)
@@ -673,6 +699,18 @@ class ControlEditor(QWidget):
         fm_haptic = self.haptic_combo.fontMetrics()
         self.haptic_combo.setMinimumHeight(int(fm_haptic.lineSpacing() * TEXT_EDIT_HEIGHT_MULTIPLIER))
         haptic_row.addWidget(self.haptic_combo)
+
+        # Speed dropdown (to the right of strength)
+        haptic_row.addSpacing(20)
+        haptic_row.addWidget(QLabel("Speed:"))
+        self.haptic_speed_combo = QComboBox()
+        self.haptic_speed_combo.addItem("Use Profile Default", None)
+        self.haptic_speed_combo.addItem("Fast (more detents)", HapticSpeed.FAST)
+        self.haptic_speed_combo.addItem("Medium", HapticSpeed.MEDIUM)
+        self.haptic_speed_combo.addItem("Slow (fewer detents)", HapticSpeed.SLOW)
+        self.haptic_speed_combo.setMinimumHeight(int(fm_haptic.lineSpacing() * TEXT_EDIT_HEIGHT_MULTIPLIER))
+        haptic_row.addWidget(self.haptic_speed_combo)
+
         haptic_row.addStretch()
         haptic_layout.addLayout(haptic_row)
 
@@ -765,7 +803,8 @@ class ControlEditor(QWidget):
         self.setEnabled(False)
 
     def load_control(self, control_name: str, current_action: str, comment: str = "",
-                     modifier_combos: dict = None, haptic_strength: Optional[HapticStrength] = None):
+                     modifier_combos: dict = None, haptic_strength: Optional[HapticStrength] = None,
+                     haptic_speed: Optional[HapticSpeed] = None):
         """Load a control for editing
 
         Args:
@@ -774,6 +813,7 @@ class ControlEditor(QWidget):
             comment: Optional comment/notes for this control
             modifier_combos: Dict of control_name -> (action, comment) for combos (optional)
             haptic_strength: Current haptic strength for rotary controls (None = use profile default)
+            haptic_speed: Current haptic speed for rotary controls (None = use profile default)
         """
         self.current_control = control_name
         self.current_dial = ROTARY_TO_DIAL.get(control_name)  # None for non-rotary
@@ -786,13 +826,20 @@ class ControlEditor(QWidget):
         # Show/hide haptic group based on whether this is a rotary control
         if self.current_dial:
             self.haptic_group.show()
-            # Set haptic combo to current value
+            # Set haptic strength combo to current value
             if haptic_strength is None:
                 self.haptic_combo.setCurrentIndex(0)  # "Use Profile Default"
             else:
                 index = self.haptic_combo.findData(haptic_strength)
                 if index >= 0:
                     self.haptic_combo.setCurrentIndex(index)
+            # Set haptic speed combo to current value
+            if haptic_speed is None:
+                self.haptic_speed_combo.setCurrentIndex(0)  # "Use Profile Default"
+            else:
+                speed_index = self.haptic_speed_combo.findData(haptic_speed)
+                if speed_index >= 0:
+                    self.haptic_speed_combo.setCurrentIndex(speed_index)
         else:
             self.haptic_group.hide()
 
@@ -977,8 +1024,9 @@ class ControlEditor(QWidget):
         # Emit haptic change for rotary controls
         if self.current_dial:
             haptic_strength = self.haptic_combo.currentData()  # None or HapticStrength
-            self.haptic_changed.emit(self.current_dial, haptic_strength)
-            logger.info(f"Apply haptic: {self.current_dial} -> {haptic_strength}")
+            haptic_speed = self.haptic_speed_combo.currentData()  # None or HapticSpeed
+            self.haptic_changed.emit(self.current_dial, haptic_strength, haptic_speed)
+            logger.info(f"Apply haptic: {self.current_dial} -> strength={haptic_strength}, speed={haptic_speed}")
 
         # If this is a physical button, check if there are modifier combinations
         if self.current_control in VALID_MODIFIER_BUTTONS:
@@ -1097,6 +1145,7 @@ class ControlEditor(QWidget):
             action = dialog.get_action()
             comment = dialog.get_comment()
             haptic = dialog.get_haptic()
+            haptic_speed = dialog.get_haptic_speed()
 
             if control and action and action != "none":
                 self._add_combo_row(control, action, comment)
@@ -1104,8 +1153,9 @@ class ControlEditor(QWidget):
                 # Emit haptic change if this is a rotary control combo
                 dial_name = ROTARY_TO_DIAL.get(control)
                 if dial_name:
-                    self.combo_haptic_changed.emit(self.current_control, dial_name, haptic)
+                    self.combo_haptic_changed.emit(self.current_control, dial_name, haptic, haptic_speed)
                     self.combo_haptics[(self.current_control, dial_name)] = haptic
+                    self.combo_haptic_speeds[(self.current_control, dial_name)] = haptic_speed
 
     def _on_edit_combo(self, row: int):
         """Handle Edit button click for a combination"""
@@ -1118,11 +1168,13 @@ class ControlEditor(QWidget):
         action = action_item.data(Qt.UserRole) if action_item else ""  # Get raw action string
         comment = comment_item.text() if comment_item else ""
 
-        # Get current haptic setting for this combo (if it's a rotary)
+        # Get current haptic settings for this combo (if it's a rotary)
         dial_name = ROTARY_TO_DIAL.get(control)
         current_haptic = None
+        current_haptic_speed = None
         if dial_name:
             current_haptic = self.combo_haptics.get((self.current_control, dial_name))
+            current_haptic_speed = self.combo_haptic_speeds.get((self.current_control, dial_name))
 
         # Get list of already-used controls (excluding the one being edited)
         used_controls = set()
@@ -1135,12 +1187,14 @@ class ControlEditor(QWidget):
         # Open dialog with current values
         dialog = ComboConfigDialog(self, modifier_name=self.current_control,
                                    control_name=control, action=action, comment=comment,
-                                   exclude_controls=used_controls, haptic_strength=current_haptic)
+                                   exclude_controls=used_controls, haptic_strength=current_haptic,
+                                   haptic_speed=current_haptic_speed)
         if dialog.exec() == QDialog.Accepted:
             new_control = dialog.get_control()
             new_action = dialog.get_action()
             new_comment = dialog.get_comment()
             new_haptic = dialog.get_haptic()
+            new_haptic_speed = dialog.get_haptic_speed()
 
             if new_control and new_action and new_action != "none":
                 # Update row
@@ -1156,8 +1210,9 @@ class ControlEditor(QWidget):
                 # Emit haptic change if this is a rotary control combo
                 new_dial_name = ROTARY_TO_DIAL.get(new_control)
                 if new_dial_name:
-                    self.combo_haptic_changed.emit(self.current_control, new_dial_name, new_haptic)
+                    self.combo_haptic_changed.emit(self.current_control, new_dial_name, new_haptic, new_haptic_speed)
                     self.combo_haptics[(self.current_control, new_dial_name)] = new_haptic
+                    self.combo_haptic_speeds[(self.current_control, new_dial_name)] = new_haptic_speed
 
     def _add_combo_row(self, control_name: str, action: str, comment: str, select: bool = True):
         """Add a row to the combinations table
