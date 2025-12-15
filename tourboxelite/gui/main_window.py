@@ -7,8 +7,8 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QSplitter, QMessageBox, QDialog, QProgressDialog, QToolBar
 )
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QAction, QKeySequence, QIcon
+from PySide6.QtCore import Qt, QTimer, QUrl
+from PySide6.QtGui import QAction, QKeySequence, QIcon, QDesktopServices
 
 # Import from GUI modules
 from .profile_manager import ProfileManager
@@ -148,6 +148,12 @@ class TourBoxConfigWindow(QMainWindow):
         self.check_updates_action.setStatusTip("Check GitHub for a newer version")
         self.check_updates_action.triggered.connect(self._check_for_updates)
         help_menu.addAction(self.check_updates_action)
+
+        # User Guide action
+        user_guide_action = QAction("&User Guide", self)
+        user_guide_action.setStatusTip("Open the GUI User Guide documentation")
+        user_guide_action.triggered.connect(self._open_user_guide)
+        help_menu.addAction(user_guide_action)
 
     def _create_toolbar(self):
         """Create the toolbar"""
@@ -955,6 +961,12 @@ class TourBoxConfigWindow(QMainWindow):
                 readable_parts.append(part)
 
         return "+".join(readable_parts)
+
+    def _open_user_guide(self):
+        """Open the GUI User Guide documentation on GitHub"""
+        QDesktopServices.openUrl(
+            QUrl("https://github.com/AndyCappDev/tourboxelite/blob/master/docs/GUI_USER_GUIDE.md")
+        )
 
     def _check_for_updates(self):
         """Check GitHub for a newer version"""
