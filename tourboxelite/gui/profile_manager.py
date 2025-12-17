@@ -182,7 +182,9 @@ class ProfileManager(QWidget):
 
         # Clear and rebuild table
         self.profile_table.setRowCount(0)
-        for row, profile in enumerate(self.profiles):
+        # Filter out the TourBox GUI meta-configuration profile
+        displayed_profiles = [p for p in self.profiles if p.name != 'TourBox GUI']
+        for row, profile in enumerate(displayed_profiles):
             self.profile_table.insertRow(row)
 
             # Column 0: Profile name

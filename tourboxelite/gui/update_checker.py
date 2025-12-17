@@ -1,9 +1,9 @@
 """Update checker for TourBox Elite GUI
 
-Fetches version information from GitHub and compares with installed version.
+Fetches version information from GitHub releases and compares with installed version.
 """
 
-import re
+import json
 import logging
 import urllib.request
 import urllib.error
@@ -14,8 +14,8 @@ from tourboxelite import VERSION
 
 logger = logging.getLogger(__name__)
 
-# URL to fetch VERSION from GitHub
-VERSION_URL = "https://raw.githubusercontent.com/AndyCappDev/tourboxelite/master/tourboxelite/__init__.py"
+# GitHub API URL for latest release
+RELEASES_URL = "https://api.github.com/repos/AndyCappDev/tourboxelite/releases/latest"
 REQUEST_TIMEOUT = 5  # seconds
 
 
@@ -23,9 +23,9 @@ class UpdateChecker(QThread):
     """Background thread to check for updates on GitHub"""
 
     # Signals
-    update_available = Signal(str, str)  # (latest_version, current_version)
-    no_update = Signal(str)              # (current_version)
-    check_failed = Signal(str)           # (error_message)
+    update_available = Signal(str, str, str)  # (latest_version, current_version, release_notes)
+    no_update = Signal(str)                   # (current_version)
+    check_failed = Signal(str)                # (error_message)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -36,30 +36,42 @@ class UpdateChecker(QThread):
         try:
             logger.info(f"Checking for updates (current version: {self.current_version})")
 
-            # Fetch __init__.py from GitHub
+            # Fetch latest release from GitHub API
             request = urllib.request.Request(
-                VERSION_URL,
-                headers={'User-Agent': f'TourBoxElite/{self.current_version}'}
+                RELEASES_URL,
+                headers={
+                    'User-Agent': f'TourBoxElite/{self.current_version}',
+                    'Accept': 'application/vnd.github.v3+json'
+                }
             )
             with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT) as response:
-                content = response.read().decode('utf-8')
+                data = json.loads(response.read().decode('utf-8'))
 
-            # Parse VERSION from content
-            latest_version = self._parse_version(content)
+            # Parse version from tag_name (e.g., "v2.2.0" -> "2.2.0")
+            tag_name = data.get('tag_name', '')
+            latest_version = tag_name.lstrip('v')
             if not latest_version:
-                self.check_failed.emit("Could not parse version from GitHub")
+                self.check_failed.emit("Could not parse version from GitHub release")
                 return
 
+            release_notes = data.get('body', '') or ''
             logger.info(f"Latest version on GitHub: {latest_version}")
 
             # Compare versions
             if self._is_newer(latest_version, self.current_version):
                 logger.info(f"Update available: {latest_version}")
-                self.update_available.emit(latest_version, self.current_version)
+                self.update_available.emit(latest_version, self.current_version, release_notes)
             else:
                 logger.info("Already running latest version")
                 self.no_update.emit(self.current_version)
 
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                error_msg = "No releases found on GitHub"
+            else:
+                error_msg = f"GitHub API error: {e.code}"
+            logger.error(error_msg)
+            self.check_failed.emit(error_msg)
         except urllib.error.URLError as e:
             error_msg = f"Network error: {e.reason}"
             logger.error(error_msg)
@@ -72,20 +84,6 @@ class UpdateChecker(QThread):
             error_msg = f"Error checking for updates: {e}"
             logger.error(error_msg, exc_info=True)
             self.check_failed.emit(error_msg)
-
-    def _parse_version(self, content: str) -> str:
-        """Parse VERSION string from __init__.py content
-
-        Args:
-            content: File content
-
-        Returns:
-            Version string or None if not found
-        """
-        match = re.search(r"VERSION\s*=\s*['\"]([^'\"]+)['\"]", content)
-        if match:
-            return match.group(1)
-        return None
 
     def _is_newer(self, latest: str, current: str) -> bool:
         """Compare semantic versions

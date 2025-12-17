@@ -11,6 +11,8 @@
 
 Linux driver for the TourBox Elite and Elite Plus by TourBox Tech Inc. Supports both **USB** and **Bluetooth LE** connections.
 
+> **If you find this useful, please [⭐ star this repo](https://github.com/AndyCappDev/tourboxelite) to help others discover it!**
+
 ## Features
 
 - ✅ **Graphical Configuration** - Full-featured GUI for visual configuration with live preview
@@ -20,6 +22,7 @@ Linux driver for the TourBox Elite and Elite Plus by TourBox Tech Inc. Supports 
 - ✅ **Window Detection** - Automatic profile switching based on focused window
 - ✅ **Full Button Mapping** - All 20 controls configurable (buttons, knobs, scroll wheel, dial)
 - ✅ **Modifier Keys** - Create over 250 unique key combinations per profile using physical buttons as modifiers
+- ✅ **Import/Export Profiles** - Import and Export profiles to share with the community
 - ✅ **Systemd Integration** - Runs as a user service, starts on login
 
 ## Requirements
@@ -348,7 +351,7 @@ haptic.scroll = strong
 haptic.dial = off
 ```
 
-Configure haptic settings via the GUI (Profile Settings dialog) or edit the config file directly. Haptic feedback is only available on TourBox Elite - the Neo model does not have haptic motors.
+Configure haptic settings via the GUI (Profile Settings dialog) or edit the config file directly. Haptic feedback is only available on TourBox Elite / Elite Plus - the Neo model does not have haptic motors.
 
 After editing, restart the service:
 ```bash
