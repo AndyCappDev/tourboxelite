@@ -169,6 +169,14 @@ class TourBoxConfigWindow(QMainWindow):
         user_guide_action.triggered.connect(self._open_user_guide)
         help_menu.addAction(user_guide_action)
 
+        help_menu.addSeparator()
+
+        # About action
+        about_action = QAction("&About", self)
+        about_action.setStatusTip("About TourBox Elite Driver")
+        about_action.triggered.connect(self._show_about)
+        help_menu.addAction(about_action)
+
     def _create_toolbar(self):
         """Create the toolbar"""
         toolbar = QToolBar("Main Toolbar")
@@ -1030,6 +1038,29 @@ class TourBoxConfigWindow(QMainWindow):
             QUrl("https://github.com/AndyCappDev/tourboxelite/blob/master/docs/GUI_USER_GUIDE.md")
         )
 
+    def _show_about(self):
+        """Show the About dialog"""
+        from . import __version__
+
+        about_text = f"""
+<h2>TourBox Linux Driver</h2>
+<p>Version {__version__}</p>
+<p>A Linux driver for the TourBox Elite and Elite Plus controllers,<br>
+with full GUI configuration support.</p>
+<p><b>Author:</b> Scott Bowman (<a href="https://github.com/AndyCappDev">AndyCappDev</a>)</p>
+<p><a href="https://github.com/AndyCappDev/tourboxelite">Project Homepage</a></p>
+<hr>
+<p>If you find this software useful, please consider<br>
+<a href="https://github.com/AndyCappDev/tourboxelite">giving it a ⭐ on GitHub</a> to help others discover it!</p>
+"""
+
+        msg = QMessageBox(self)
+        msg.setWindowTitle("About TourBox Linux Driver")
+        msg.setTextFormat(Qt.RichText)
+        msg.setText(about_text)
+        msg.setIcon(QMessageBox.Information)
+        msg.exec()
+
     def _check_for_updates(self):
         """Check GitHub for a newer version"""
         from .update_checker import UpdateChecker
@@ -1046,7 +1077,7 @@ class TourBoxConfigWindow(QMainWindow):
         self._update_checker.finished.connect(lambda: self.check_updates_action.setEnabled(True))
         self._update_checker.start()
 
-    def _on_update_available(self, latest_version: str, current_version: str):
+    def _on_update_available(self, latest_version: str, current_version: str, release_notes: str):
         """Handle update available signal"""
         from pathlib import Path
         import webbrowser
@@ -1063,12 +1094,24 @@ class TourBoxConfigWindow(QMainWindow):
         msg.setText(f"A new version is available!\n\n"
                     f"Current version: {current_version}\n"
                     f"Latest version: {latest_version}")
-        msg.setInformativeText(
+
+        # Build informative text with release notes and update instructions
+        info_text = ""
+        if release_notes:
+            # Strip markdown formatting for plain text display
+            notes = release_notes.strip()
+            # Truncate if very long
+            if len(notes) > 800:
+                notes = notes[:800] + "..."
+            info_text = f"{notes}\n\n"
+
+        info_text += (
             f"To update, run these commands:\n\n"
             f"  cd {install_path}\n"
             f"  git pull\n"
             f"  ./install.sh"
         )
+        msg.setInformativeText(info_text)
 
         # Add buttons
         view_btn = msg.addButton("View on GitHub", QMessageBox.ActionRole)

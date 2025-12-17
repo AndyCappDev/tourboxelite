@@ -18,6 +18,7 @@
 11. [Checking for Updates](#checking-for-updates)
 12. [Troubleshooting](#troubleshooting)
 
+
 ---
 
 ## Introduction
@@ -25,6 +26,7 @@
 The TourBox Elite Configuration GUI is a graphical application that lets you configure your TourBox Elite controller without manually editing configuration files. With this tool, you can:
 
 - **Visually configure** all 20 controls (buttons, dials, scroll wheel, knob)
+- **Press physical buttons** on your TourBox to instantly select controls for editing
 - **Create over 250 unique key combinations per profile** using modifier buttons
 - **Create application-specific profiles** that automatically switch based on the active window
 - **Import and export profiles** to share with other users
@@ -32,24 +34,9 @@ The TourBox Elite Configuration GUI is a graphical application that lets you con
 - **Manage multiple profiles** with an intuitive interface
 - **Test configurations** without leaving the Configuration GUI
 
-No more editing INI files by hand - everything is point-and-click!
-
 ---
 
 ## Getting Started
-
-### Prerequisites
-
-Before using the GUI, ensure you have:
-
-1. **Installed the TourBox Elite driver** using `install.sh` (see main README.md)
-   - The GUI dependencies are automatically installed by the installer
-2. **Configured your device's MAC address** in `~/.config/tourbox/config.conf` (for Bluetooth)
-
-> **Note:** If you performed a manual installation, you'll need to install GUI dependencies separately:
-> ```bash
-> pip install -r tourboxelite/gui/requirements.txt
-> ```
 
 ### Launching the GUI
 
@@ -75,7 +62,7 @@ tourbox-gui
 
 ## Understanding the Interface
 
-![TourBox Elite Configuration GUI](images/gui-screenshot.png?v=2.0.1)
+![TourBox Elite Configuration GUI](images/gui-screenshot.png?v=2.3.0)
 
 The GUI has a 4-panel layout:
 
@@ -107,7 +94,7 @@ The GUI has a 4-panel layout:
 - **List of all available profiles** with window matching rules
 - The **default profile** is always present and cannot be deleted
 - Shows which windows each profile applies to
-- Buttons to **create**, **edit**, and **delete** profiles
+- Buttons to **create**, **edit**, **delete**, **import**, and **export** profiles
 
 ### 3. Controls Configuration (Top-Right)
 
@@ -122,17 +109,37 @@ The GUI has a 4-panel layout:
 - Choose action type: Keyboard, Mouse Wheel, or None
 - Set modifier keys (Ctrl, Alt, Shift, Super)
 - Select keys or mouse wheel directions
+- Create and edit modifier combinations
 - **Apply** button saves changes to memory (not actually saved to the config file yet)
 
 ### Menu Bar & Toolbar
 
 - **File Menu:**
   - Save (Ctrl+S) - Write changes to config file and apply them
+  - Import Profile - Import a profile
+  - Export Profile - Export a profile
   - Quit - Exit the application
 
 - **Toolbar:** Quick access button for Save
 
 - **Status Bar:** Shows current status, profile name, and operation feedback
+
+### Using Physical Buttons to Select Controls
+
+You can **press any button or rotate any dial on your TourBox** to instantly select that control for editing in the GUI. This is much faster than clicking through the Controls Configuration table.
+
+**How it works:**
+- The driver includes a built-in `TourBox GUI` profile that activates when the GUI window is focused
+- Physical button presses are mapped to keyboard shortcuts that the GUI recognizes
+- The GUI automatically selects the corresponding control for editing
+
+**Example:** To edit the "knob clockwise" mapping:
+1. Make sure the GUI window is focused
+2. Rotate the knob clockwise on your TourBox
+3. The "knob_cw" control is automatically selected in the Controls Configuration table
+4. The Control Editor loads the current mapping, ready to edit
+
+> **Note:** This requires the TourBox driver to be running. If you stopped the driver for testing, physical button selection won't work until you restart it.
 
 ---
 
@@ -149,7 +156,7 @@ The GUI has a 4-panel layout:
 3. In the Control Editor:
    - Select **"Keyboard"** as the action type
    - Check the **"Ctrl"** modifier box
-   - Type **"c"** in the text input field
+   - Type **"c"** in the **"Key:"** text input field
 4. Click **"Apply"**
    - The Controls Configuration table updates to show "Ctrl+C"
    - Window title shows an asterisk (*) indicating unsaved changes
@@ -288,8 +295,6 @@ When the TourBox driver is running:
 **In the GUI:**
 - Simply click a profile name to switch to it
 - The Controls Configuration table updates
-- The Control Editor clears
-- Any highlighted control clears
 
 ---
 
@@ -336,7 +341,7 @@ When you first launch the GUI after upgrading to version 2.3.0 or later, you may
 
 **Migration is safe:**
 - Your original configuration is backed up
-- You can decline and continue using the old format
+- Your existing profile settings are preserved during migration
 
 ---
 
@@ -503,6 +508,7 @@ However, the **click actions** (scroll_click, knob_click, dial_click) **can** be
    - **Modifiers:** Check "Ctrl"
    - **Key:** Type "c"
    - **Comment:** (Optional) Type "Copy"
+   - For dial controls you can select the **Strength** and **Speed** of the haptic feedback
    - Click **"OK"**
 4. The combination appears in the Modifier Combinations table
 5. Click **"Apply"** to apply changes
@@ -522,7 +528,7 @@ However, the **click actions** (scroll_click, knob_click, dial_click) **can** be
 **To delete a combination:**
 1. Select the modifier button in Controls Configuration
 2. In the Modifier Combinations table, click the combination row
-3. Click the **"Delete"** button in the rightmost column
+3. Click the **"Delete"** (trash icon) button in the rightmost column
 4. Confirm deletion
 5. Click **"Apply"**, then **"Save"**
 
@@ -677,7 +683,7 @@ Each profile can have its own haptic settings. This is useful if you want differ
 6. Click **"Apply"**
 7. Click **"Save"** (Ctrl+S) to write changes to config
 
-The haptic settings apply to all three rotary controls (knob, scroll wheel, dial) in that profile as the default.
+When set at the profile level, the haptic settings apply to all three rotary controls (knob, scroll wheel, dial) in that profile as the default.
 
 ### Setting Per-Dial Haptic Feedback
 
@@ -686,7 +692,7 @@ For more granular control, you can set different haptic strength and speed for e
 **To set haptic for a specific dial:**
 
 1. **Select a rotary control** in the Controls Configuration table
-   - Choose one of: `scroll_up`, `scroll_down`, `knob_cw`, `knob_ccw`, `dial_cw`, or `dial_ccw`
+   - Choose one of: `Scroll Up`, `Scroll Down`, `Knob Clockwise`, `Knob Counter-CW`, `Dial Clockwise`, or `Dial Counter-CW`
 2. In the Control Editor, you'll see a **"Haptic Feedback"** section with two dropdowns side-by-side:
    - **Strength:** dropdown on the left
    - **Speed:** dropdown on the right
@@ -703,13 +709,13 @@ For more granular control, you can set different haptic strength and speed for e
 
 ### Haptic for Modifier Combinations
 
-When you create a modifier combination that uses a rotary control (e.g., `side + knob_cw`), you can also set custom haptic strength and speed for that specific combination.
+When you create a modifier combination that uses a rotary control (e.g., `Side + Knob Clockwise`), you can also set custom haptic strength and speed for that specific combination.
 
 **To set haptic for a modifier+rotary combination:**
 
 1. **Select the modifier button** (e.g., "side")
 2. In the **Modifier Combinations** table, click **"Add Combination"** or edit an existing one
-3. **Select a rotary control** as the target (e.g., `knob_cw`)
+3. **Select a rotary control** as the target (e.g., `Knob Clockwise`)
 4. The **"Haptic Feedback"** section appears in the dialog with:
    - **Strength:** dropdown
    - **Speed:** dropdown
@@ -717,15 +723,15 @@ When you create a modifier combination that uses a rotary control (e.g., `side +
 6. Click **"OK"**, then **"Apply"**, then **"Save"**
 
 This allows you to have different haptic feedback depending on whether you're using the dial alone or with a modifier button held. For example:
-- `knob_cw` alone: Strong + Fast (for scrolling)
-- `side + knob_cw`: Weak + Slow (for fine brush adjustments)
+- `Knob Clockwise` alone: Strong + Fast (for scrolling)
+- `Side + Knob Clockwise`: Weak + Slow (for fine brush adjustments)
 
 ### Haptic Configuration Hierarchy
 
 Haptic settings (both strength and speed) are applied in this priority order (highest to lowest):
 
-1. **Per-combo setting** - Modifier + rotary combination (e.g., `side + knob_cw`)
-2. **Per-dial setting** - Individual dial override (e.g., just `knob`)
+1. **Per-combo setting** - Modifier + rotary combination (e.g., `Side + Knob Clockwise`)
+2. **Per-dial setting** - Individual dial override (e.g., just `Knob`)
 3. **Profile global setting** - Profile-wide haptic setting
 4. **Default** - Off for strength, Fast for speed (if nothing is configured)
 
@@ -779,12 +785,6 @@ Speed up your workflow with keyboard shortcuts:
 3. Change only what's different
 4. Saves time vs. configuring from scratch
 
-**Backups:**
-- The GUI automatically creates timestamped backups before each save
-- Located in: `~/.config/tourbox/profiles/<profile>.profile.backup.YYYYMMDD_HHMMSS`
-- Keeps the 5 most recent backups per profile
-- Restore by copying a backup over the original `.profile` file
-
 ### Common Mapping Patterns
 
 **Undo/Redo:**
@@ -812,7 +812,7 @@ Speed up your workflow with keyboard shortcuts:
 ### Visual Feedback
 
 - **Yellow highlight** on controller view shows selected control that has no modifiers or the modifier itself
-- **Turquoise highlight** on controller view shows the control that is the base controll (has modifiers defined for it)
+- **Turquoise highlight** on controller view shows the control that is the base controll (that has modifiers defined for it)
 - **Asterisk (*)** in window title means unsaved changes
 - **"(unmapped)"** in controls list means no action assigned
 - **Status bar** shows what's happening
