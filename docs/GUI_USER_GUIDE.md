@@ -1,4 +1,4 @@
-# TourBox Elite Configuration GUI - User Guide
+# TourBox Configuration GUI - User Guide
 
 **Version:** 1.4
 **Last Updated:** 2025-12-15
@@ -23,7 +23,7 @@
 
 ## Introduction
 
-The TourBox Elite Configuration GUI is a graphical application that lets you configure your TourBox Elite controller without manually editing configuration files. With this tool, you can:
+The TourBox Configuration GUI is a graphical application that lets you configure your TourBox controller without manually editing configuration files. With this tool, you can:
 
 - **Visually configure** all 20 controls (buttons, dials, scroll wheel, knob)
 - **Press physical buttons** on your TourBox to instantly select controls for editing
@@ -62,7 +62,7 @@ tourbox-gui
 
 ## Understanding the Interface
 
-![TourBox Elite Configuration GUI](images/gui-screenshot.png?v=2.3.0)
+![TourBox Configuration GUI](images/gui-screenshot.png?v=2.3.0)
 
 The GUI has a 4-panel layout:
 
@@ -85,7 +85,7 @@ The GUI has a 4-panel layout:
 
 ### 1. Controller View (Top-Left)
 
-- **Visual representation** of the TourBox Elite controller
+- **Visual representation** of the TourBox controller
 - **Highlights controls** when you select them from the list
 - Shows which button you're currently editing
 
@@ -141,7 +141,7 @@ You can **press any button or rotate any dial on your TourBox** to instantly sel
 **Example:** To edit the "knob clockwise" mapping:
 1. Make sure the GUI window is focused
 2. Rotate the knob clockwise on your TourBox
-3. The "knob_cw" control is automatically selected in the Controls Configuration table
+3. The "Knob Clockwise" control is automatically selected in the Controls Configuration table
 4. The Control Editor loads the current mapping, ready to edit
 
 > **Note:** This requires the TourBox driver to be running. If you stopped the driver for testing, physical button selection won't work until you restart it.
@@ -307,7 +307,7 @@ When the TourBox driver is running:
 
 ### Why Import/Export?
 
-- **Share profiles** with other TourBox Elite users
+- **Share profiles** with other TourBox users
 - **Backup** your custom configurations
 - **Transfer** profiles between computers
 - **Community sharing** - download profiles from other users
@@ -354,7 +354,7 @@ When you first launch the GUI after upgrading to version 2.3.0 or later, you may
 
 ### The 20 TourBox Controls
 
-Your TourBox Elite has these controls:
+Your TourBox has these controls:
 
 **Buttons (7):**
 - `side` - Large side button
@@ -434,8 +434,8 @@ Simulate mouse wheel scrolling.
 - Horizontal Right - Scroll right
 
 **Common uses:**
-- Map `knob_cw` to Wheel Up and `knob_ccw` to Wheel Down for scrolling
-- Map `dial_cw`/`dial_ccw` for zooming (if app supports Ctrl+Wheel)
+- Map `Knob Clockwise` to Wheel Up and `Knob Counter-CW` to Wheel Down for scrolling
+- Map `Dial Clockwise`/`Dial Counter-CW` for zooming (if app supports Ctrl+Wheel)
 
 #### 3. None (Unmapped)
 
@@ -452,7 +452,7 @@ The control does nothing when pressed.
 
 ### What Are Modifier Buttons?
 
-**Modifier buttons** are a powerful feature that allows you to create **over 250 unique key combinations per profile** using your TourBox Elite's physical buttons. When a button acts as a modifier, it can be combined with any other control to trigger different actions.
+**Modifier buttons** are a powerful feature that allows you to create **over 250 unique key combinations per profile** using your TourBox's physical buttons. When a button acts as a modifier, it can be combined with any other control to trigger different actions.
 
 **Example Workflow:**
 - `Side` button alone → Send Super key (open application menu)
@@ -656,7 +656,7 @@ Here's a complete example showing how to set up a modifier-heavy workflow:
 
 ### What is Haptic Feedback?
 
-The TourBox Elite has built-in haptic motors that provide vibration feedback when you rotate the knob, scroll wheel, or dial. This tactile feedback helps you feel each "click" or detent as you rotate, making it easier to make precise adjustments without looking at the screen.
+The TourBox Elite and Elite Plus have built-in haptic motors that provide vibration feedback when you rotate the knob, scroll wheel, or dial. This tactile feedback helps you feel each "click" or detent as you rotate, making it easier to make precise adjustments without looking at the screen.
 
 > **Note:** Haptic feedback is only available on the TourBox Elite and Elite Plus. The TourBox Neo does not have haptic motors.
 
@@ -826,7 +826,7 @@ Speed up your workflow with keyboard shortcuts:
 
 ## Checking for Updates
 
-To check if a new version of TourBox Elite is available:
+To check if a new version of TourBox Linux is available:
 
 1. Open the GUI: `tourbox-gui`
 2. Click **Help → Check for Updates**
@@ -1034,7 +1034,7 @@ If you encounter issues not covered here:
    ```
 
 3. **Report issues:**
-   - GitHub: https://github.com/your-repo/tourboxelite/issues
+   - GitHub: https://github.com/AndyCappDev/tourbox-linux/issues
    - Include: OS, desktop environment, error messages, logs
 
 ---
@@ -1143,7 +1143,7 @@ The GUI preserves comments and formatting when saving!
 
 ---
 
-**Enjoy your TourBox Elite with the power of a visual configuration tool!** 🎨✨
+**Enjoy your TourBox with the power of a visual configuration tool!** 🎨✨
 
 For technical details, see:
 - [CONFIG_GUIDE.md](CONFIG_GUIDE.md) - Manual config editing

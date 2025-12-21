@@ -6,7 +6,7 @@
 
 ## Why is it needed?
 
-The TourBox Elite driver uses window detection to enable **Profile Mode** - automatic switching of button mappings based on which application you're using.
+The TourBox Linux driver uses window detection to enable **Profile Mode** - automatic switching of button mappings based on which application you're using.
 
 Different Wayland compositors provide different APIs for window information:
 - **GNOME (Mutter)** - Uses D-Bus API (built-in)

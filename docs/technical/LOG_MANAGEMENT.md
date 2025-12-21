@@ -1,4 +1,4 @@
-# TourBox Elite - Log Management
+# TourBox Linux - Log Management
 
 ## Understanding systemd Logs
 

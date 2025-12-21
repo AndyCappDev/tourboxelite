@@ -1,6 +1,6 @@
-# TourBox Elite Button Mapping Guide
+# TourBox Button Mapping Guide
 
-This guide will help you map all buttons, dials, and controls on your TourBox Elite to their hex codes.
+This guide will help you map all buttons, dials, and controls on your TourBox to their hex codes.
 
 ---
 
@@ -93,7 +93,7 @@ Press each direction:
 Copy this template to a new file `MY_BUTTON_MAP.md` and fill it in:
 
 ```markdown
-# My TourBox Elite Button Mapping
+# My TourBox Button Mapping
 
 ## Buttons
 - Tall: Press=0xXX, Release=0xXX

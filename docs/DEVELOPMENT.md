@@ -1,6 +1,6 @@
-# TourBox Elite Driver - Development Guide
+# TourBox Linux Driver - Development Guide
 
-This guide is for developers who want to work on, debug, or contribute to the TourBox Elite driver.
+This guide is for developers who want to work on, debug, or contribute to the TourBox Linux driver.
 
 ## 📋 Table of Contents
 
@@ -180,7 +180,7 @@ Example output:
 2025-11-01 21:56:19,217 - tourboxelite.config_loader - INFO - Loading profiles from /home/scott/.config/tourbox/mappings.conf
 2025-11-01 21:56:19,218 - __main__ - INFO - Loaded 4 profiles
 2025-11-01 21:56:19,234 - tourboxelite.window_monitor - INFO - Detected Wayland compositor: kde
-2025-11-01 21:56:19,234 - __main__ - INFO - Connecting to TourBox Elite at D9:BE:1E:CC:40:D7...
+2025-11-01 21:56:19,234 - __main__ - INFO - Connecting to TourBox at D9:BE:1E:CC:40:D7...
 
 Button #1: 44 -> 4 events  # Knob CW rotation
 Button #2: c4 -> 2 events  # Knob CW stop
@@ -243,7 +243,7 @@ ls -la /dev/input/by-id/
 
 # Monitor events from TourBox
 sudo evtest
-# Select "TourBox Elite" from the list
+# Select "TourBox" from the list
 ```
 
 ## 📁 Project Structure
@@ -389,7 +389,7 @@ tourboxelite/
 - Clear/reset functionality
 
 **`gui/controller_view.py`** - Visual controller view (~200 LOC)
-- SVG-based visual representation of TourBox Elite
+- SVG-based visual representation of TourBox controller
 - Shows which control is currently selected
 - Highlights controls with colored overlays
 - Click-to-select functionality
@@ -762,7 +762,7 @@ self.widget.blockSignals(False)
 
 # In another terminal, monitor input events
 sudo evtest
-# Select "TourBox Elite"
+# Select "TourBox"
 # Press buttons and verify events are generated
 ```
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Main window for TourBox Elite Configuration GUI"""
+"""Main window for TourBox Configuration GUI"""
 
 import sys
 import logging
@@ -27,11 +27,11 @@ logger = logging.getLogger(__name__)
 
 
 class TourBoxConfigWindow(QMainWindow):
-    """Main configuration window for TourBox Elite"""
+    """Main configuration window for TourBox"""
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("TourBox Elite Configuration")
+        self.setWindowTitle("TourBox Configuration")
         self.setMinimumSize(1000, 940)  # Increased to ensure all controls including buttons are fully visible
         self.resize(1280, 1024)
 
@@ -173,7 +173,7 @@ class TourBoxConfigWindow(QMainWindow):
 
         # About action
         about_action = QAction("&About", self)
-        about_action.setStatusTip("About TourBox Elite Driver")
+        about_action.setStatusTip("About TourBox Linux Driver")
         about_action.triggered.connect(self._show_about)
         help_menu.addAction(about_action)
 
@@ -665,7 +665,7 @@ class TourBoxConfigWindow(QMainWindow):
 
     def _update_window_title(self):
         """Update window title to show modified state"""
-        title = "TourBox Elite Configuration"
+        title = "TourBox Configuration"
         if self.current_profile:
             title += f" - {self.current_profile.name}"
         if self.is_modified:
@@ -998,7 +998,7 @@ class TourBoxConfigWindow(QMainWindow):
         QMessageBox.information(
             self,
             "Configuration Migration",
-            "TourBox Elite now stores profiles in individual files for easier sharing.\n\n"
+            "TourBox Linux now stores profiles in individual files for easier sharing.\n\n"
             "All your existing profiles and settings will be preserved.\n"
             "A backup of your current configuration will also be created."
         )
@@ -1035,7 +1035,7 @@ class TourBoxConfigWindow(QMainWindow):
     def _open_user_guide(self):
         """Open the GUI User Guide documentation on GitHub"""
         QDesktopServices.openUrl(
-            QUrl("https://github.com/AndyCappDev/tourboxelite/blob/master/docs/GUI_USER_GUIDE.md")
+            QUrl("https://github.com/AndyCappDev/tourbox-linux/blob/master/docs/GUI_USER_GUIDE.md")
         )
 
     def _show_about(self):
@@ -1045,13 +1045,13 @@ class TourBoxConfigWindow(QMainWindow):
         about_text = f"""
 <h2>TourBox Linux Driver</h2>
 <p>Version {__version__}</p>
-<p>A Linux driver for the TourBox Elite and Elite Plus controllers,<br>
+<p>A Linux driver for the TourBox Neo, Elite and Elite Plus controllers,<br>
 with full GUI configuration support.</p>
 <p><b>Author:</b> Scott Bowman (<a href="https://github.com/AndyCappDev">AndyCappDev</a>)</p>
-<p><a href="https://github.com/AndyCappDev/tourboxelite">Project Homepage</a></p>
+<p><a href="https://github.com/AndyCappDev/tourbox-linux">Project Homepage</a></p>
 <hr>
 <p>If you find this software useful, please consider giving it a ⭐ on GitHub<br>
-(click the Star button in the top right of the <a href="https://github.com/AndyCappDev/tourboxelite">project page</a>).</p>
+(click the Star button in the top right of the <a href="https://github.com/AndyCappDev/tourbox-linux">project page</a>).</p>
 """
 
         msg = QMessageBox(self)
@@ -1121,7 +1121,7 @@ with full GUI configuration support.</p>
 
         # Handle button click
         if msg.clickedButton() == view_btn:
-            webbrowser.open("https://github.com/AndyCappDev/tourboxelite/releases")
+            webbrowser.open("https://github.com/AndyCappDev/tourbox-linux/releases")
 
     def _on_no_update(self, current_version: str):
         """Handle no update available signal"""
@@ -1402,11 +1402,11 @@ def main():
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
-    logger.info("Starting TourBox Elite Configuration GUI")
+    logger.info("Starting TourBox Configuration GUI")
 
     # Create Qt application
     app = QApplication(sys.argv)
-    app.setApplicationName("TourBox Elite Configuration")
+    app.setApplicationName("TourBox Configuration")
     app.setDesktopFileName("tourbox-gui.desktop")
 
     # Create and show main window

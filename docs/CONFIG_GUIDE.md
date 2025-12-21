@@ -1,10 +1,10 @@
-# TourBox Elite Configuration Guide
+# TourBox Configuration Guide
 
-This guide explains how to configure your TourBox Elite device and customize button mappings.
+This guide explains how to configure your TourBox device and customize button mappings.
 
 ## Configuration File Structure
 
-TourBox Elite supports two configuration formats:
+TourBox Linux supports two configuration formats:
 
 ### New Format (v2.3.0+) - Individual Profile Files
 
@@ -111,18 +111,18 @@ The config file uses INI format with these sections:
 
 ### `[device]` Section
 
-Configures your TourBox Elite device connection.
+Configures your TourBox device connection.
 
 **Format:** `setting = value`
 
 **Available settings:**
-- `mac_address` - Your TourBox Elite's Bluetooth MAC address (XX:XX:XX:XX:XX:XX)
+- `mac_address` - Your TourBox's Bluetooth MAC address (XX:XX:XX:XX:XX:XX) - Elite/Elite Plus only
 
 **How to find your MAC address:**
 ```bash
 bluetoothctl devices
 ```
-Look for "TourBox Elite" in the output.
+Look for "TourBox Elite" or "TourBox Elite Plus" in the output.
 
 **Example:**
 ```ini
@@ -330,9 +330,9 @@ knob_click = none               # Disable this button
 
 ## Haptic Feedback Configuration
 
-The TourBox Elite has haptic motors that provide vibration feedback when rotating the knob, scroll wheel, or dial. You can configure both haptic **strength** (vibration intensity) and **speed** (detent spacing) in the config file.
+The TourBox Elite and Elite Plus have haptic motors that provide vibration feedback when rotating the knob, scroll wheel, or dial. You can configure both haptic **strength** (vibration intensity) and **speed** (detent spacing) in the config file.
 
-> **Note:** Haptic feedback is only available on TourBox Elite and Elite Plus. The TourBox Neo does not have haptic motors.
+> **Note:** Haptic feedback is only available on the TourBox Elite and Elite Plus. The TourBox Neo does not have haptic motors.
 
 ### Global Haptic Settings (Per Profile)
 

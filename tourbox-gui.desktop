@@ -1,13 +1,13 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=TourBox Elite Configuration
+Name=TourBox Configuration
 GenericName=Input Device Configuration
-Comment=Configure TourBox Elite button mappings and profiles
+Comment=Configure TourBox button mappings and profiles
 Icon=tourbox-icon
 Exec=/usr/local/bin/tourbox-gui
 Terminal=false
 Categories=Settings;HardwareSettings;Utility;
 Keywords=tourbox;input;controller;configuration;bluetooth;mapping;
 StartupNotify=true
-StartupWMClass=TourBox Elite Configuration
+StartupWMClass=TourBox Configuration

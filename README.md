@@ -1,4 +1,4 @@
-# TourBox Elite / Elite Plus Linux Driver
+# TourBox Neo / Elite / Elite Plus Linux Driver
 
 **Version 2.3.1**
 
@@ -7,27 +7,27 @@
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 
 **Author:** Scott Bowman ([AndyCappDev](https://github.com/AndyCappDev))
-**Original Repository:** [github.com/AndyCappDev/tourboxelite](https://github.com/AndyCappDev/tourboxelite)
+**Original Repository:** [github.com/AndyCappDev/tourbox-linux](https://github.com/AndyCappDev/tourbox-linux)
 
-Linux driver for the TourBox Elite and Elite Plus by TourBox Tech Inc. Supports both **USB** and **Bluetooth LE** connections.
+Linux driver for the TourBox Neo, Elite and Elite Plus by TourBox Tech Inc. Supports both **USB** and **Bluetooth LE** connections.
 
 > **If you find this useful, please ⭐ star this repo (click the Star button in the top right) to help others discover it!**
 
 ## Device Compatibility
 
-| Device | Status | Connection | Notes |
-|--------|--------|------------|-------|
-| TourBox Elite | ✅ Fully Tested | USB, Bluetooth | Full support |
-| TourBox Elite Plus | ✅ Fully Tested | USB, Bluetooth | Full support |
-| TourBox Neo | ❓ Untested | USB only | [Help us test!](https://github.com/AndyCappDev/tourboxelite/discussions/6) - May work, needs verification |
+| Device | Status | Connection | Haptics | Notes |
+|--------|--------|------------|---------|-------|
+| TourBox Elite | ✅ Fully Tested | USB, Bluetooth | ✅ | Full support |
+| TourBox Elite Plus | ✅ Fully Tested | USB, Bluetooth | ✅ | Full support |
+| TourBox Neo | ❓ Untested | USB only | ❌ | [Help us test!](https://github.com/AndyCappDev/tourbox-linux/discussions/6) - May work, needs verification |
 
-> **Have a TourBox Neo?** We'd love your help testing compatibility! See our [call for testers](https://github.com/AndyCappDev/tourboxelite/discussions/6) for details.
+> **Have a TourBox Neo?** We'd love your help testing compatibility! See our [call for testers](https://github.com/AndyCappDev/tourbox-linux/discussions/6) for details.
 
 ## Features
 
 - ✅ **Graphical Configuration** - Full-featured GUI for visual configuration with live preview
 - ✅ **USB and Bluetooth LE** - Connect via USB cable or wirelessly via Bluetooth
-- ✅ **Haptic Feedback** - Configurable vibration feedback for rotary controls (knob, scroll, dial)
+- ✅ **Haptic Feedback** - Configurable vibration feedback for rotary controls (Elite series only)
 - ✅ **Application Profiles** - Different button mappings per application (Wayland only)
 - ✅ **Window Detection** - Automatic profile switching based on focused window
 - ✅ **Full Button Mapping** - All 20 controls configurable (buttons, knobs, scroll wheel, dial)
@@ -103,8 +103,8 @@ Device 12:34:56:78:9A:BC TourBox Elite
 ### Step 2: Run the Installer
 
 ```bash
-git clone https://github.com/AndyCappDev/tourboxelite.git
-cd tourboxelite
+git clone https://github.com/AndyCappDev/tourbox-linux.git
+cd tourbox-linux
 ./install.sh
 ```
 

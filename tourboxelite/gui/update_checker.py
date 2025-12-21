@@ -15,7 +15,7 @@ from tourboxelite import VERSION
 logger = logging.getLogger(__name__)
 
 # GitHub API URL for latest release
-RELEASES_URL = "https://api.github.com/repos/AndyCappDev/tourboxelite/releases/latest"
+RELEASES_URL = "https://api.github.com/repos/AndyCappDev/tourbox-linux/releases/latest"
 REQUEST_TIMEOUT = 5  # seconds
 
 
