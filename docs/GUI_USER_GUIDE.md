@@ -1,6 +1,6 @@
 # TourBox Configuration GUI - User Guide
 
-**Version:** 1.6
+**Version:** 1.7
 **Last Updated:** 2025-12-25
 
 ## Table of Contents
@@ -624,6 +624,22 @@ However, the **click actions** (scroll_click, knob_click, dial_click) **can** be
 - `tall + c2` → Switch to eraser tool
 - `tall + tour` → Reset tool options
 - `tall` alone → Alt
+
+**Context Menu Navigation (C1 as modifier):**
+
+This pattern lets you navigate context menus entirely from your TourBox - open the menu, scroll through options, and select - without touching your mouse:
+
+- `c1` alone → Right Click (opens context menu)
+- `c1 + scroll_up` → Up Arrow (navigate menu up)
+- `c1 + scroll_down` → Down Arrow (navigate menu down)
+- `c2` → Left Click or Enter (select menu item)
+
+**Workflow:**
+1. Hold C1 → right-click opens the context menu
+2. While still holding C1, scroll up/down → arrow keys navigate the menu
+3. Release C1, press C2 → selects the highlighted item
+
+This effectively recreates the overlay menu experience using native application context menus!
 
 ### Tips for Using Modifiers
 

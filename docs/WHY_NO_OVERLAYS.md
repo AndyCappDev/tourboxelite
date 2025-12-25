@@ -59,6 +59,7 @@ This is likely why TourBox themselves haven't released an official Linux driverâ
 
 If you want overlay-like functionality:
 
+- **Context menu navigation**: Use modifier buttons to navigate native application context menus entirely from your TourBox. Set up a button (e.g., C1) as a modifier with Right Click as its base action, then map `C1 + scroll_up` to Up Arrow and `C1 + scroll_down` to Down Arrow. Hold C1 to open the context menu, scroll to navigate, release and press another button for Enter/Left Click to select. This recreates much of the TourMenu workflow using existing app menus. See the [GUI User Guide](GUI_USER_GUIDE.md#common-modifier-patterns) for details.
 - **Keyboard shortcut reference**: Use your desktop's built-in shortcut overlay (KDE: hold Super key, GNOME: similar)
 - **Cheat sheet**: Keep a reference image/document open on a second monitor
 - **Desktop widgets**: Some desktops support custom widgets that could display mappings
