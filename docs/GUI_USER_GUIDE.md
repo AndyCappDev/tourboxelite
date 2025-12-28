@@ -62,7 +62,7 @@ tourbox-gui
 
 ## Understanding the Interface
 
-![TourBox Configuration GUI](images/gui-screenshot.png?v=2.4.2)
+![TourBox Configuration GUI](images/gui-screenshot.png?v=2.4.3)
 
 The GUI has a 4-panel layout:
 
@@ -265,12 +265,14 @@ Profiles activate when the window properties match your rules. You can match by:
 
 **Capturing Window Info Automatically:**
 
-1. Click **"⚙"** (settings) button next to a profile
-2. Click **"Capture Active Window"** button
-3. **Within 5 seconds**, click on the window you want to match
-4. The GUI auto-fills the App ID and Window Class fields
-5. Edit/clear fields as needed
-6. Click **Apply**
+1. Open the application that you want to match the profile to
+2. In the TourBox GUI, select the profile want to set the window matching for
+3. Click the **"⚙"** (settings) button in the Profiles pane
+4. Click the **"Capture Active Window"** button
+5. **Within 5 seconds**, click on the app window you want to match to
+6. After 5 seconds, the GUI auto-fills the App ID and Window Class fields
+7. Click **Apply**
+8. Click **Save** (just under the File Menu)
 
 **Tips:**
 - You can use **one, or both** matching fields
@@ -724,7 +726,7 @@ Here's a complete example showing how to set up a modifier-heavy workflow:
 
 The TourBox Elite and Elite Plus have built-in haptic motors that provide vibration feedback when you rotate the knob, scroll wheel, or dial. This tactile feedback helps you feel each "click" or detent as you rotate, making it easier to make precise adjustments without looking at the screen.
 
-> **Note:** Haptic feedback is only available on the TourBox Elite and Elite Plus. The TourBox Neo does not have haptic motors.
+> **Note:** Haptic feedback is only available on the TourBox Elite and Elite Plus. The TourBox Lite and Neo do not have haptic motors.
 
 ### Haptic Settings Overview
 
@@ -901,7 +903,7 @@ Speed up your workflow with keyboard shortcuts:
 ### Visual Feedback
 
 - **Yellow highlight** on controller view shows selected control that has no modifiers or the modifier itself
-- **Turquoise highlight** on controller view shows the control that is the base control (that has modifiers defined for it)
+- **Turquoise highlight** on controller view shows the control that is the base control (that has combination modifiers defined for it)
 - **Orange ⚠ icon** in profile name indicates conflicting window rules with another active profile
 - **Asterisk (*)** in window title means unsaved changes
 - **"(unmapped)"** in controls list means no action assigned

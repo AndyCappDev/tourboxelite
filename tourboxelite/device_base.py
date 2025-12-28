@@ -19,6 +19,16 @@ from .window_monitor import WaylandWindowMonitor
 
 logger = logging.getLogger(__name__)
 
+# Controls that can be held (buttons) vs momentary (rotary)
+# Used for "last-wins" behavior where pressing a new button releases the previous
+HOLDABLE_BUTTONS = {
+    'side', 'top', 'short', 'tall',
+    'c1', 'c2',
+    'dpad_up', 'dpad_down', 'dpad_left', 'dpad_right',
+    'scroll_click', 'knob_click', 'dial_click',
+    'tour'
+}
+
 
 class GracefulKiller:
     """Handle SIGINT, SIGTERM, and SIGHUP gracefully"""
@@ -83,6 +93,14 @@ class TourBoxBase(ABC):
         self.base_action_active: Set[str] = set()      # Modifiers with base action currently pressed
         self.combo_used: Set[str] = set()              # Modifiers that had a combo used while held
 
+        # Last-wins button state tracking
+        # Maps button_name -> list of (event_type, event_code, value) press events
+        self.active_button_events: Dict[str, List[Tuple[int, int, int]]] = {}
+
+        # Active combo tracking - for proper release when modifier is released first
+        # Maps combo_target_button -> list of (event_type, event_code, value) press events
+        self.active_combo_events: Dict[str, List[Tuple[int, int, int]]] = {}
+
     def is_modifier_button(self, control_name: str) -> bool:
         """Check if a control is configured as a modifier button
 
@@ -93,6 +111,28 @@ class TourBoxBase(ABC):
             True if the control is a modifier button, False otherwise
         """
         return control_name in self.modifier_buttons
+
+    def _release_previous_buttons(self, new_button: str):
+        """Release any previously held buttons (last-wins behavior)
+
+        When a new button is pressed, release keyboard events from any
+        previously held buttons to prevent modifier stacking.
+
+        Args:
+            new_button: The button being pressed (don't release this one)
+        """
+        for button_name, events in list(self.active_button_events.items()):
+            if button_name == new_button:
+                continue
+
+            # Send release events for each press event that was sent
+            for event_type, event_code, value in events:
+                if event_type == e.EV_KEY and value == 1:
+                    self.controller.write(event_type, event_code, 0)
+            self.controller.syn()
+
+            del self.active_button_events[button_name]
+            logger.debug(f"Last-wins: released {button_name}")
 
     def get_control_name_from_code(self, data_bytes: bytes) -> Optional[Tuple[str, bool]]:
         """Get control name and press/release state from button code
@@ -164,8 +204,36 @@ class TourBoxBase(ABC):
             control_name, is_press = control_info
 
             if self.is_modifier_button(control_name):
-                # This is a modifier button - update state
-                if is_press:
+                # This is a modifier button - but check if it should trigger a combo first
+                # (e.g., Tour is active, Side is pressed, and tour.side combo exists)
+                if is_press and self.active_modifiers:
+                    # Check if any active modifier has a combo for this button
+                    modified_action = self.get_modified_action(control_name)
+                    if modified_action:
+                        # This modifier triggers a combo with an already-active modifier
+                        # Don't treat it as a new modifier - fall through to Step 3
+                        logger.info(f"Modifier {control_name} triggers combo with {self.active_modifiers}")
+                        # Don't return - let Step 3 handle the combo
+                    else:
+                        # No combo - handle as normal modifier
+                        self.active_modifiers.add(control_name)
+                        logger.info(f"Modifier {control_name} PRESSED, active: {self.active_modifiers}")
+
+                        # Execute base action press if configured
+                        if control_name in self.modifier_base_actions:
+                            events = self.modifier_base_actions[control_name]
+                            # Send press events only
+                            for event_type, event_code, value in events:
+                                if value == 1:  # Press events
+                                    self.controller.write(event_type, event_code, value)
+                            self.controller.syn()
+                            self.base_action_active.add(control_name)
+                            logger.info(f"Modifier {control_name} base action PRESSED")
+                        else:
+                            logger.info(f"Modifier {control_name} - no base action, tracking state only")
+                        return
+                elif is_press:
+                    # No active modifiers - handle as normal modifier
                     self.active_modifiers.add(control_name)
                     logger.info(f"Modifier {control_name} PRESSED, active: {self.active_modifiers}")
 
@@ -181,29 +249,59 @@ class TourBoxBase(ABC):
                         logger.info(f"Modifier {control_name} base action PRESSED")
                     else:
                         logger.info(f"Modifier {control_name} - no base action, tracking state only")
+                    return
                 else:
-                    # Modifier released
-                    self.active_modifiers.discard(control_name)
-                    logger.info(f"Modifier {control_name} RELEASED, active: {self.active_modifiers}")
+                    # Modifier released - only handle if it was tracked as a modifier
+                    # (not if it was used as a combo target)
+                    if control_name in self.active_modifiers:
+                        self.active_modifiers.discard(control_name)
+                        logger.info(f"Modifier {control_name} RELEASED, active: {self.active_modifiers}")
 
-                    # Release base action if it's still active (wasn't cancelled by combo)
-                    if control_name in self.base_action_active:
-                        events = self.modifier_base_actions[control_name]
-                        # Send release events
-                        for event_type, event_code, value in events:
-                            if value == 1:  # Was a press event, send release
-                                self.controller.write(event_type, event_code, 0)
-                        self.controller.syn()
-                        self.base_action_active.discard(control_name)
-                        logger.info(f"Modifier {control_name} base action RELEASED")
+                        # Release base action if it's still active (wasn't cancelled by combo)
+                        if control_name in self.base_action_active:
+                            events = self.modifier_base_actions[control_name]
+                            # Send release events
+                            for event_type, event_code, value in events:
+                                if value == 1:  # Was a press event, send release
+                                    self.controller.write(event_type, event_code, 0)
+                            self.controller.syn()
+                            self.base_action_active.discard(control_name)
+                            logger.info(f"Modifier {control_name} base action RELEASED")
 
-                    # Reset combo usage tracking
-                    self.combo_used.discard(control_name)
-                return
+                        # Reset combo usage tracking
+                        self.combo_used.discard(control_name)
+                        return
+                    # If not in active_modifiers, it was a combo target - fall through to Step 3
 
         # Step 3: Check for modified action (combo)
         if control_info:
             control_name, is_press = control_info
+
+            # Check for active combo first (for release when modifier is already released)
+            if not is_press and control_name in self.active_combo_events:
+                # Use tracked events for release
+                tracked_events = self.active_combo_events.pop(control_name)
+                events_to_send = []
+                for event_type, event_code, value in tracked_events:
+                    if event_type == e.EV_KEY and value == 1:
+                        events_to_send.append((event_type, event_code, 0))
+                    else:
+                        events_to_send.append((event_type, event_code, value))
+
+                # Log and send
+                event_desc = []
+                for event_type, event_code, value in events_to_send:
+                    if event_type == e.EV_KEY:
+                        key_name = next((k for k, v in e.__dict__.items() if (k.startswith('KEY_') or k.startswith('BTN_')) and v == event_code), f"CODE_{event_code}")
+                        action = "PRESS" if value == 1 else "RELEASE" if value == 0 else f"VAL={value}"
+                        event_desc.append(f"{key_name}:{action}")
+                logger.info(f"Combo release (tracked): {control_name} -> {', '.join(event_desc)}")
+
+                for event in events_to_send:
+                    self.controller.write(*event)
+                self.controller.syn()
+                return
+
             modified_action = self.get_modified_action(control_name)
 
             if modified_action:
@@ -225,10 +323,15 @@ class TourBoxBase(ABC):
                     # Mark that combo was used
                     self.combo_used.add(modifier_name)
 
+                    # Track combo events for release (in case modifier is released first)
+                    self.active_combo_events[control_name] = modified_action
+
                     # Send combo press
                     events_to_send = modified_action
                 else:
                     # Combo button released - send combo release
+                    # Also remove from tracking
+                    self.active_combo_events.pop(control_name, None)
                     events_to_send = []
                     for event_type, event_code, value in modified_action:
                         if event_type == e.EV_KEY and value == 1:
@@ -256,6 +359,23 @@ class TourBoxBase(ABC):
         if data_bytes:
             mapping = self.mapping.get(data_bytes, [])
             if mapping:
+                # Last-wins behavior: release previously held buttons when a new one is pressed
+                if control_info and control_info[0] in HOLDABLE_BUTTONS:
+                    control_name, is_press = control_info
+
+                    if is_press:
+                        # Release any other held buttons first
+                        self._release_previous_buttons(control_name)
+
+                        # Track this button's press events for later release
+                        press_events = [(t, c, v) for t, c, v in mapping
+                                       if t == e.EV_KEY and v == 1]
+                        if press_events:
+                            self.active_button_events[control_name] = press_events
+                    else:
+                        # Button released - stop tracking it
+                        self.active_button_events.pop(control_name, None)
+
                 # Log the actual events being sent
                 event_desc = []
                 for event_type, event_code, value in mapping:
@@ -295,6 +415,8 @@ class TourBoxBase(ABC):
         self.active_modifiers.clear()  # Clear modifier state when switching
         self.base_action_active.clear()  # Clear base action state
         self.combo_used.clear()  # Clear combo usage tracking
+        self.active_button_events.clear()  # Clear last-wins button tracking
+        self.active_combo_events.clear()  # Clear active combo tracking
 
         # Convert modifier mappings from action strings to events
         self.modifier_mappings = {}
@@ -474,6 +596,8 @@ class TourBoxBase(ABC):
         self.active_modifiers.clear()
         self.base_action_active.clear()
         self.combo_used.clear()
+        self.active_button_events.clear()  # Clear last-wins button tracking
+        self.active_combo_events.clear()  # Clear active combo tracking
 
     def create_virtual_device(self):
         """Create the virtual input device (uinput)
