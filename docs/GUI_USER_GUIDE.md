@@ -853,6 +853,34 @@ Use **File → Restart Driver** to restart the TourBox driver service and reload
 
 > **Tip:** This is much faster than logging out and back in when switching between USB and Bluetooth connections!
 
+### Desktop Environment Shortcuts
+
+When you map TourBox buttons to modifier keys (Alt, Ctrl, Super, Shift), those key events may trigger your desktop environment's global shortcuts before reaching your application.
+
+**How key events flow:**
+
+1. You press TourBox buttons (e.g., ones mapped to Alt and Space)
+2. TourBox sends button codes to the driver via USB or Bluetooth
+3. The driver translates those codes to key events and sends them via uinput
+4. Linux input subsystem receives the key events
+5. **Your desktop environment gets first look** - it intercepts global shortcuts here
+6. If not a global shortcut, the events reach the focused application
+
+**Example:** If you map separate buttons to Alt and Space, pressing both together will trigger KDE's KRunner (Alt+Space) or GNOME's Activities search - the desktop intercepts these before your application ever sees them.
+
+**Solutions for shortcut conflicts:**
+
+1. **Disable the DE shortcut** - In your desktop's keyboard settings, disable or rebind the conflicting shortcut
+2. **Use different keys** - Choose key combinations that don't conflict with your DE's defaults
+3. **Check common conflicts:**
+   - Alt+Space (KDE KRunner, window menu)
+   - Alt+Tab (window switching)
+   - Super key (application menu/overview)
+   - Alt+F2 (command runner)
+   - Ctrl+Alt+T (terminal)
+
+> **Note:** This isn't a driver bug - it's how Linux input handling works. The driver correctly sends key events; your desktop environment simply processes global shortcuts before applications do.
+
 ### Keyboard Navigation
 
 Speed up your workflow with keyboard shortcuts:
