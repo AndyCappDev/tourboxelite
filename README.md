@@ -156,7 +156,9 @@ If you're using GNOME on Wayland and want profile mode (app-specific mappings), 
 
 Without this extension, profile mode will not work on GNOME (the driver will use the default profile for all apps).
 
-**Note:** Sway and Hyprland users don't need any additional software.
+### Additional Step for Sway/Hyprland Users
+
+No additional software required - profile mode works out of the box using the compositor's built-in IPC.
 
 ## Updating
 
