@@ -220,7 +220,19 @@ def validate_profile_file(filepath: Path) -> Tuple[bool, str]:
         if 'mappings' in config.sections():
             from .config_loader import BUTTON_CODES
             for key in config['mappings'].keys():
-                if key not in BUTTON_CODES and key != 'modifier':
+                # Skip known special keys
+                if key == 'modifier':
+                    continue
+                # Skip .double keys (double-press actions)
+                if key.endswith('.double'):
+                    continue
+                # Skip .base_action keys (modifier base actions)
+                if key.endswith('.base_action'):
+                    continue
+                # Skip modifier combo keys (modifier.control)
+                if '.' in key:
+                    continue
+                if key not in BUTTON_CODES:
                     # Allow unknown keys, just warn
                     logger.warning(f"Unknown button in profile: {key}")
 
@@ -267,6 +279,14 @@ def load_profile_from_file(filepath: Path):
         # Parse enabled state (defaults to True if not specified)
         enabled = profile_section.get('enabled', 'true').lower() in ('true', 'yes', '1', 'on')
 
+        # Parse double-click timeout (defaults to 300ms if not specified)
+        double_click_timeout = 300
+        if 'double_click_timeout' in profile_section:
+            try:
+                double_click_timeout = int(profile_section['double_click_timeout'])
+            except ValueError:
+                logger.warning(f"Invalid double_click_timeout value, using default 300ms")
+
         # Parse global haptic settings from [profile] section
         haptic_config = HapticConfig()
         if 'haptic' in profile_section:
@@ -276,10 +296,17 @@ def load_profile_from_file(filepath: Path):
 
         # Parse mappings from [mappings] section
         mapping = {}
+        double_press_actions = {}
         if 'mappings' in config.sections():
             for key, action in config['mappings'].items():
                 # Skip modifier declarations (handled separately)
                 if action.strip() == 'modifier':
+                    continue
+
+                # Check for double-press action: control.double = ACTION
+                if key.endswith('.double'):
+                    control_name = key[:-7]  # Remove '.double' suffix
+                    double_press_actions[control_name] = action.strip()
                     continue
 
                 if key in BUTTON_CODES:
@@ -345,6 +372,21 @@ def load_profile_from_file(filepath: Path):
                     if event_code not in caps[e.EV_REL]:
                         caps[e.EV_REL].append(event_code)
 
+        # Add double-press actions to capabilities
+        for action_str in double_press_actions.values():
+            events = parse_action(action_str)
+            for event_type, event_code, value in events:
+                if event_type == e.EV_KEY:
+                    if e.EV_KEY not in caps:
+                        caps[e.EV_KEY] = []
+                    if event_code not in caps[e.EV_KEY]:
+                        caps[e.EV_KEY].append(event_code)
+                elif event_type == e.EV_REL:
+                    if e.EV_REL not in caps:
+                        caps[e.EV_REL] = []
+                    if event_code not in caps[e.EV_REL]:
+                        caps[e.EV_REL].append(event_code)
+
         # Parse haptic settings from [haptic] section
         if 'haptic' in config.sections():
             for key, value in config['haptic'].items():
@@ -369,6 +411,7 @@ def load_profile_from_file(filepath: Path):
         # Parse comments from [comments] section
         mapping_comments = {}
         modifier_combo_comments = {}
+        double_press_comments = {}
 
         if 'comments' in config.sections():
             for key, value in config['comments'].items():
@@ -380,6 +423,10 @@ def load_profile_from_file(filepath: Path):
                         if parts[1] == 'base_action':
                             # Base action comment
                             mapping_comments[key] = comment_text
+                        elif parts[1] == 'double':
+                            # Double-press action comment
+                            control_name = parts[0].strip()
+                            double_press_comments[control_name] = comment_text
                         else:
                             # Combo comment
                             modifier_name, control_name = parts[0].strip(), parts[1].strip()
@@ -400,7 +447,10 @@ def load_profile_from_file(filepath: Path):
             mapping_comments=mapping_comments,
             modifier_combo_comments=modifier_combo_comments,
             haptic_config=haptic_config,
-            enabled=enabled
+            enabled=enabled,
+            double_click_timeout=double_click_timeout,
+            double_press_actions=double_press_actions,
+            double_press_comments=double_press_comments
         )
 
         logger.info(f"Loaded profile from file: {profile}")
@@ -447,6 +497,10 @@ def save_profile_to_file(profile, filepath: Path) -> bool:
         if not profile.enabled:
             lines.append("enabled = false")
 
+        # Only write double_click_timeout if non-default (300ms is the default)
+        if profile.double_click_timeout != 300:
+            lines.append(f"double_click_timeout = {profile.double_click_timeout}")
+
         # Global haptic settings in profile section
         if profile.haptic_config.global_setting is not None:
             lines.append(f"haptic = {profile.haptic_config.global_setting}")
@@ -467,6 +521,10 @@ def save_profile_to_file(profile, filepath: Path) -> bool:
 
         for control in sorted(action_strings.keys()):
             lines.append(f"{control} = {action_strings[control]}")
+
+        # Write double-press actions
+        for control in sorted(profile.double_press_actions.keys()):
+            lines.append(f"{control}.double = {profile.double_press_actions[control]}")
 
         lines.append("")
 
@@ -518,7 +576,7 @@ def save_profile_to_file(profile, filepath: Path) -> bool:
             lines.append("")
 
         # [comments] section
-        has_comments = profile.mapping_comments or profile.modifier_combo_comments
+        has_comments = profile.mapping_comments or profile.modifier_combo_comments or profile.double_press_comments
 
         if has_comments:
             lines.append("[comments]")
@@ -527,6 +585,11 @@ def save_profile_to_file(profile, filepath: Path) -> bool:
             for control, comment in sorted(profile.mapping_comments.items()):
                 escaped_comment = comment.replace('\n', '\\n')
                 lines.append(f"{control} = {escaped_comment}")
+
+            # Double-press comments
+            for control, comment in sorted(profile.double_press_comments.items()):
+                escaped_comment = comment.replace('\n', '\\n')
+                lines.append(f"{control}.double = {escaped_comment}")
 
             # Combo comments
             for (modifier, control), comment in sorted(profile.modifier_combo_comments.items()):

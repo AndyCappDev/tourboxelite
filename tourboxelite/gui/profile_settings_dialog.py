@@ -36,6 +36,7 @@ class ProfileSettingsDialog(QDialog):
         self.result_window_class = profile.window_class or ""
         self.result_haptic_strength = profile.haptic_config.get_effective_global()
         self.result_haptic_speed = profile.haptic_config.get_effective_speed()
+        self.result_double_click_timeout = profile.double_click_timeout
 
         self._init_ui()
         self.setMinimumWidth(500)
@@ -66,7 +67,7 @@ class ProfileSettingsDialog(QDialog):
 
         # Window matching section
         matching_group = QGroupBox("Window Matching Rules")
-        matching_layout = QVBoxLayout(matching_group)
+        matching_layout = QFormLayout(matching_group)
 
         # Info text
         info_label = QLabel(
@@ -74,27 +75,22 @@ class ProfileSettingsDialog(QDialog):
             "Leave both empty to never auto-activate (manual selection only)."
         )
         info_label.setWordWrap(True)
-        info_label.setStyleSheet("color: #666; font-size: 10px; margin-bottom: 10px;")
-        matching_layout.addWidget(info_label)
-
-        # Form for matching fields
-        form_layout = QFormLayout()
+        info_label.setStyleSheet("color: #666; font-size: 10px;")
+        matching_layout.addRow(info_label)
 
         self.app_id_edit = QLineEdit(self.profile.app_id or "")
         self.app_id_edit.setPlaceholderText("e.g., firefox, code, org.kde.kate")
-        form_layout.addRow("App ID:", self.app_id_edit)
+        matching_layout.addRow("App ID:", self.app_id_edit)
 
         self.window_class_edit = QLineEdit(self.profile.window_class or "")
         self.window_class_edit.setPlaceholderText("e.g., Firefox, Code")
-        form_layout.addRow("Window Class:", self.window_class_edit)
-
-        matching_layout.addLayout(form_layout)
+        matching_layout.addRow("Window Class:", self.window_class_edit)
 
         # Capture button
         capture_button = QPushButton("📷 Capture Active Window")
         capture_button.setToolTip("Click to capture window info from the currently focused window")
         capture_button.clicked.connect(self._on_capture_window)
-        matching_layout.addWidget(capture_button)
+        matching_layout.addRow(capture_button)
 
         layout.addWidget(matching_group)
 
@@ -139,6 +135,37 @@ class ProfileSettingsDialog(QDialog):
         haptic_layout.addRow("", haptic_info)
 
         layout.addWidget(haptic_group)
+
+        # Double-click section
+        double_click_group = QGroupBox("Double-Click")
+        double_click_layout = QFormLayout(double_click_group)
+
+        self.double_click_timeout_combo = QComboBox()
+        timeout_values = [200, 250, 300, 350, 400, 450, 500]
+        for ms in timeout_values:
+            self.double_click_timeout_combo.addItem(f"{ms} ms", ms)
+
+        # Set current value from profile
+        current_timeout = self.result_double_click_timeout
+        timeout_index = self.double_click_timeout_combo.findData(current_timeout)
+        if timeout_index >= 0:
+            self.double_click_timeout_combo.setCurrentIndex(timeout_index)
+        else:
+            # Default to 300ms if not found
+            self.double_click_timeout_combo.setCurrentIndex(2)
+
+        double_click_layout.addRow("Timeout:", self.double_click_timeout_combo)
+
+        double_click_info = QLabel(
+            "Time window for detecting double-press actions.\n"
+            "Only affects buttons with double-press actions configured.\n"
+            "Single-press actions on those buttons will have this latency."
+        )
+        double_click_info.setWordWrap(True)
+        double_click_info.setStyleSheet("color: #666; font-size: 10px;")
+        double_click_layout.addRow("", double_click_info)
+
+        layout.addWidget(double_click_group)
 
         # Dialog buttons
         button_layout = QHBoxLayout()
@@ -283,6 +310,7 @@ class ProfileSettingsDialog(QDialog):
         self.result_window_class = self.window_class_edit.text().strip()
         self.result_haptic_strength = self.haptic_combo.currentData()
         self.result_haptic_speed = self.haptic_speed_combo.currentData()
+        self.result_double_click_timeout = self.double_click_timeout_combo.currentData()
 
         # Accept the dialog
         self.accept()
@@ -291,12 +319,13 @@ class ProfileSettingsDialog(QDialog):
         """Get the edited profile settings
 
         Returns:
-            Tuple of (name, app_id, window_class, haptic_strength, haptic_speed)
+            Tuple of (name, app_id, window_class, haptic_strength, haptic_speed, double_click_timeout)
         """
         return (
             self.result_profile_name,
             self.result_app_id,
             self.result_window_class,
             self.result_haptic_strength,
-            self.result_haptic_speed
+            self.result_haptic_speed,
+            self.result_double_click_timeout
         )

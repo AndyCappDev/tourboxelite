@@ -273,7 +273,7 @@ class ProfileManager(QWidget):
         dialog = ProfileSettingsDialog(self.current_profile, self, is_new=False)
         if dialog.exec() == QDialog.Accepted:
             # Get results
-            name, app_id, window_class, haptic_strength, haptic_speed = dialog.get_results()
+            name, app_id, window_class, haptic_strength, haptic_speed, double_click_timeout = dialog.get_results()
 
             # Update profile object
             old_name = self.current_profile.name
@@ -285,8 +285,12 @@ class ProfileManager(QWidget):
             # Update haptic config (Phase 1: global setting with speed)
             self.current_profile.haptic_config.set_global(haptic_strength, haptic_speed)
 
+            # Update double-click timeout
+            self.current_profile.double_click_timeout = double_click_timeout
+
             logger.info(f"Profile updated: {self.current_profile}")
             logger.info(f"  Haptic: {haptic_strength}, Speed: {haptic_speed}")
+            logger.info(f"  Double-click timeout: {double_click_timeout}ms")
 
             # Reload the list to show updated info
             self._reload_profile_list()

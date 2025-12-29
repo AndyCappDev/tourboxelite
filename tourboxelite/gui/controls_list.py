@@ -186,10 +186,18 @@ class ControlsList(QWidget):
                 if control_name in profile.modifier_base_actions:
                     # Parse base action to get readable text
                     base_action = profile.modifier_base_actions[control_name]
-                    return self._parse_action_string_to_readable(base_action)
+                    result = self._parse_action_string_to_readable(base_action)
                 else:
                     # No base action configured
-                    return "(no base action)"
+                    result = "(no base action)"
+
+                # Check for double-press action on modifier buttons too
+                if control_name in profile.double_press_actions:
+                    dp_action = profile.double_press_actions[control_name]
+                    dp_readable = self._parse_action_string_to_readable(dp_action)
+                    result = f"{result} (2×: {dp_readable})"
+
+                return result
 
             if control_name not in BUTTON_CODES:
                 logger.warning(f"Control {control_name} not in BUTTON_CODES")
@@ -241,6 +249,13 @@ class ControlsList(QWidget):
                     result = f"{rel_name}:{value}"
             else:
                 result = "+".join(parts) if parts else "(unmapped)"
+
+            # Check for double-press action
+            if control_name in profile.double_press_actions:
+                dp_action = profile.double_press_actions[control_name]
+                dp_readable = self._parse_action_string_to_readable(dp_action)
+                result = f"{result} (2×: {dp_readable})"
+
             logger.debug(f"Control {control_name}: final result='{result}'")
             return result
 

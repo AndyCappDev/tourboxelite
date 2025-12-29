@@ -1,7 +1,7 @@
 # TourBox Configuration GUI - User Guide
 
-**Version:** 1.7
-**Last Updated:** 2025-12-25
+**Version:** 1.8
+**Last Updated:** 2025-12-29
 
 ## Table of Contents
 
@@ -13,10 +13,11 @@
 6. [Importing and Exporting Profiles](#importing-and-exporting-profiles)
 7. [Configuring Button Mappings](#configuring-button-mappings)
 8. [Using Modifier Buttons](#using-modifier-buttons)
-9. [Configuring Haptic Feedback](#configuring-haptic-feedback)
-10. [Tips & Tricks](#tips--tricks)
-11. [Checking for Updates](#checking-for-updates)
-12. [Troubleshooting](#troubleshooting)
+9. [Using Double-Press Actions](#using-double-press-actions)
+10. [Configuring Haptic Feedback](#configuring-haptic-feedback)
+11. [Tips & Tricks](#tips--tricks)
+12. [Checking for Updates](#checking-for-updates)
+13. [Troubleshooting](#troubleshooting)
 
 
 ---
@@ -28,6 +29,7 @@ The TourBox Configuration GUI is a graphical application that lets you configure
 - **Visually configure** all 20 controls (buttons, dials, scroll wheel, knob)
 - **Press physical buttons** on your TourBox to instantly select controls for editing
 - **Create over 250 unique key combinations per profile** using modifier buttons
+- **Assign double-press actions** to buttons for even more shortcuts
 - **Create application-specific profiles** that automatically switch based on the active window
 - **Import and export profiles** to share with other users
 - **Configure haptic feedback** for rotary controls (knob, scroll wheel, dial)
@@ -62,7 +64,7 @@ tourbox-gui
 
 ## Understanding the Interface
 
-![TourBox Configuration GUI](images/gui-screenshot.png?v=2.4.3)
+![TourBox Configuration GUI](images/gui-screenshot.png?v=2.5.0)
 
 The GUI has a 4-panel layout:
 
@@ -116,6 +118,7 @@ The GUI has a 4-panel layout:
 - Choose action type: Keyboard, Mouse, or None
 - Set modifier keys (Ctrl, Alt, Shift, Super)
 - Select keys, mouse scroll directions, or mouse button clicks
+- Configure double-press actions for buttons
 - Create and edit modifier combinations
 - **Apply** button saves changes to memory (not actually saved to the config file yet)
 
@@ -717,6 +720,168 @@ Here's a complete example showing how to set up a modifier-heavy workflow:
 2. Print a reference card with your most-used combinations
 3. Start with fewer combinations and add more gradually
 4. Group related functions under the same modifier
+
+---
+
+## Using Double-Press Actions
+
+### What Are Double-Press Actions?
+
+**Double-press actions** allow you to assign a second action to a button that triggers when you quickly press the button twice (like a double-click). This effectively doubles the number of actions you can assign to each button without using modifiers.
+
+**Example:**
+- Press `Side` button once → Send Super key (open application menu)
+- Double-press `Side` button quickly → Send Ctrl+Alt+T (open terminal)
+
+### Which Buttons Support Double-Press?
+
+All **14 physical buttons** can have double-press actions:
+
+**Main Buttons (7):**
+- side, top, tall, short, c1, c2, tour
+
+**D-Pad Buttons (4):**
+- dpad_up, dpad_down, dpad_left, dpad_right
+
+**Click Buttons (3):**
+- scroll_click, knob_click, dial_click
+
+**Note:** Rotary controls (scroll_up/down, knob_cw/ccw, dial_cw/ccw) do **not** support double-press because they are continuous rotation events, not discrete button presses.
+
+### Configuring a Double-Press Action
+
+**Example:** Add a double-press action to the "side" button
+
+1. **Select the profile** you want to edit (e.g., "default")
+2. **Click the "side" button** in the Controls Configuration table
+3. In the Control Editor, find the **"Double-Press Action"** section
+4. Click the **"Configure..."** button to open the Double-Press Action dialog
+5. In the dialog:
+   - Select **"Keyboard"** as the action type
+   - Check **"Ctrl"** and **"Alt"** modifier boxes
+   - Type **"t"** in the key field
+   - Click **"OK"**
+6. Click **"Apply"** to save changes to memory
+7. Click **"Save"** (Ctrl+S) to write to config file
+
+**Result:** The Controls Configuration table now shows "Super (2×: Ctrl+Alt+T)" indicating both the single-press and double-press actions!
+
+### Clearing a Double-Press Action
+
+To remove a double-press action and keep only the single-press:
+
+1. **Select the button** in the Controls Configuration table
+2. In the **"Double-Press Action"** section, click **"Clear"**
+3. Click **"Apply"**, then **"Save"**
+
+The "(2×: ...)" suffix disappears from the Current Action column.
+
+### Understanding the Double-Press Timeout
+
+Double-press detection uses a **timeout window** to distinguish between:
+- **Single-press:** One press, wait for timeout, action executes
+- **Double-press:** Two presses within timeout, double-press action executes
+
+**Default timeout:** 300ms (adjustable per profile from 200ms to 500ms)
+
+**To change the timeout:**
+1. Select the profile in the Profiles list
+2. Click the **"⚙"** (settings) button
+3. Find the **"Double-Click"** section
+4. Adjust the **"Timeout"** dropdown (200ms - 500ms)
+5. Click **"Apply"**, then **"Save"**
+
+### Important: Latency Implications
+
+When you configure double-press actions, there are **latency trade-offs** you should understand:
+
+#### Single-Press Latency (Buttons with Double-Press)
+
+When a button has a double-press action configured, the **single-press action is delayed** by the timeout period.
+
+**Why?** The driver must wait to see if a second press is coming before deciding which action to execute.
+
+**Example with 300ms timeout:**
+- You press and release the button once
+- Driver waits 300ms to see if you press again
+- If no second press → single-press action fires (300ms delayed)
+- If second press within 300ms → double-press action fires immediately
+
+**Tip:** If latency bothers you, use a shorter timeout (200ms) or reserve double-press for buttons where the delay is acceptable.
+
+#### Modifier + Combo Latency
+
+When a **modifier button has combos configured**, there is a small latency (~100-150ms) before the base action fires.
+
+**Why?** The driver needs time to detect if you're pressing a combo (modifier + another button) before committing to the base action.
+
+**Example:**
+- `Short` button is a modifier with base action "B" and combo `Short+Tall = Z`
+- You press `Short` alone
+- Driver waits ~150ms to see if `Tall` is pressed
+- If `Tall` pressed → combo "Z" fires, base action cancelled
+- If no combo → base action "B" fires after the delay
+
+**Important:** This latency applies to **all modifier buttons with combos**, regardless of whether they have double-press configured.
+
+### Tips for Using Double-Press Actions
+
+**1. Choose Appropriate Actions**
+
+- **Single-press:** Frequently used actions where speed matters
+- **Double-press:** Less frequent actions where slight delay is acceptable
+
+**Example:**
+- Single-press: Undo (Ctrl+Z) - used constantly
+- Double-press: Undo history dialog (Ctrl+Alt+Z) - used occasionally
+
+**2. Consider the Timeout Trade-off**
+
+- **Shorter timeout (200ms):** Less latency, but harder to trigger double-press
+- **Longer timeout (400-500ms):** Easier double-press, but more latency on single-press
+
+**3. Combine with Modifiers**
+
+Double-press works with modifier buttons! You can have:
+- `Side` alone → Super key
+- `Side` double-press → Ctrl+Alt+T
+- `Side + Top` → Ctrl+C (combo)
+
+All three actions from one button!
+
+**4. Use for Toggle Actions**
+
+Double-press is great for toggles:
+- Single-press: Play/Pause
+- Double-press: Stop
+
+Or mode switches:
+- Single-press: Brush tool
+- Double-press: Eraser tool
+
+### Troubleshooting Double-Press
+
+**Problem:** Double-press action doesn't trigger
+
+**Solutions:**
+1. Press faster - both presses must be within the timeout window
+2. Increase the timeout in Profile Settings
+3. Verify the double-press action is configured (look for "(2×: ...)" in Current Action)
+4. Check that you clicked "Apply" and "Save" after configuring
+
+**Problem:** Single-press feels laggy
+
+**Solutions:**
+1. Reduce the timeout to 200ms in Profile Settings
+2. If latency is unacceptable, remove the double-press action for that button
+3. Consider using a modifier combo instead of double-press
+
+**Problem:** Combo fires base action AND combo action
+
+**Solutions:**
+1. This can happen if you press the combo button too slowly
+2. Try pressing the combo button more quickly after the modifier
+3. The base action deferral window is ~150ms - press within this time
 
 ---
 

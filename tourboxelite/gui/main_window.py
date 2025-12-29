@@ -92,21 +92,23 @@ class TourBoxConfigWindow(QMainWindow):
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
 
-        # Top right: Controls list (8 rows initially)
+        # Top right: Controls list (can shrink when control editor needs more space)
         self.controls_list = ControlsList()
-        self.controls_list.setMinimumSize(400, 270)  # Reduced to show ~8 rows initially
+        self.controls_list.setMinimumSize(400, 150)  # Allow shrinking to ~4-5 rows
         self.controls_list.control_selected.connect(self._on_control_selected)
-        right_layout.addWidget(self.controls_list, stretch=1)
+        right_layout.addWidget(self.controls_list, stretch=0)  # No stretch - let control editor expand
 
-        # Bottom right: Control editor (with 4 row Modifier Combinations table)
+        # Bottom right: Control editor
         self.control_editor = ControlEditor()
-        self.control_editor.setMinimumSize(400, 550)  # Increased to show 4 rows in Modifier Combinations
+        self.control_editor.setMinimumWidth(400)
         self.control_editor.action_changed.connect(self._on_action_changed)
         self.control_editor.comment_changed.connect(self._on_comment_changed)
         self.control_editor.modifier_config_changed.connect(self._on_modifier_config_changed)
         self.control_editor.combo_selected.connect(self._on_combo_selected)
         self.control_editor.haptic_changed.connect(self._on_haptic_changed)
         self.control_editor.combo_haptic_changed.connect(self._on_combo_haptic_changed)
+        self.control_editor.double_press_action_changed.connect(self._on_double_press_action_changed)
+        self.control_editor.double_press_comment_changed.connect(self._on_double_press_comment_changed)
         right_layout.addWidget(self.control_editor, stretch=1)
 
         main_splitter.addWidget(right_widget)
@@ -447,6 +449,9 @@ class TourBoxConfigWindow(QMainWindow):
                 action_item = self.controls_list.table.item(row, 1)
                 if action_item:
                     current_action = action_item.text()
+                    # Strip double-press suffix if present (e.g., "B (2×: M)" -> "B")
+                    if " (2×:" in current_action:
+                        current_action = current_action.split(" (2×:")[0]
                 break
 
         # Get comment from profile
@@ -480,6 +485,15 @@ class TourBoxConfigWindow(QMainWindow):
                 haptic_speed = self.current_profile.haptic_config.dial_speed_settings[dial_name]
             # Note: None values mean "use profile default"
 
+        # Get double-press action and comment
+        double_press_action = ""
+        double_press_comment = ""
+        double_click_timeout = 300
+        if self.current_profile:
+            double_press_action = self.current_profile.double_press_actions.get(control_name, "")
+            double_press_comment = self.current_profile.double_press_comments.get(control_name, "")
+            double_click_timeout = self.current_profile.double_click_timeout
+
         # Load into editor
         self.control_editor.load_control(
             control_name,
@@ -487,7 +501,10 @@ class TourBoxConfigWindow(QMainWindow):
             comment=comment,
             modifier_combos=modifier_combos,
             haptic_strength=haptic_strength,
-            haptic_speed=haptic_speed
+            haptic_speed=haptic_speed,
+            double_press_action=double_press_action,
+            double_press_comment=double_press_comment,
+            double_click_timeout=double_click_timeout
         )
 
         # Update status bar
@@ -552,6 +569,74 @@ class TourBoxConfigWindow(QMainWindow):
 
         self.statusBar().showMessage(f"Comment modified: {control_name} (not saved)")
 
+    def _on_double_press_action_changed(self, control_name: str, action_str: str):
+        """Handle double-press action change from editor
+
+        Args:
+            control_name: Name of the control
+            action_str: New double-press action string (empty to clear)
+        """
+        if not self.current_profile:
+            return
+
+        logger.info(f"Double-press action changed: {control_name} -> {action_str or '(none)'}")
+
+        # Update the profile directly
+        if action_str:
+            self.current_profile.double_press_actions[control_name] = action_str
+        else:
+            # Remove if empty
+            self.current_profile.double_press_actions.pop(control_name, None)
+
+        self.is_modified = True
+        self._update_window_title()
+        self.save_action.setEnabled(True)
+
+        # Update just the action cell for this control (don't reload entire profile
+        # as that would wipe out unsaved changes from modified_mappings)
+        for row in range(self.controls_list.table.rowCount()):
+            item = self.controls_list.table.item(row, 0)
+            if item and item.data(Qt.UserRole) == control_name:
+                action_item = self.controls_list.table.item(row, 1)
+                if action_item:
+                    # Get the base action (from modified_mappings or current display)
+                    base_action = action_item.text()
+                    # Remove any existing double-press suffix
+                    if " (2×:" in base_action:
+                        base_action = base_action.split(" (2×:")[0]
+                    # Add new double-press suffix if action exists
+                    if action_str:
+                        dp_readable = self._action_to_readable(action_str)
+                        action_item.setText(f"{base_action} (2×: {dp_readable})")
+                    else:
+                        action_item.setText(base_action)
+                break
+
+        self.statusBar().showMessage(f"Double-press modified: {control_name} (not saved)")
+
+    def _on_double_press_comment_changed(self, control_name: str, comment: str):
+        """Handle double-press comment change from editor
+
+        Args:
+            control_name: Name of the control
+            comment: New double-press comment text
+        """
+        if not self.current_profile:
+            return
+
+        logger.info(f"Double-press comment changed: {control_name}")
+
+        # Update the profile directly
+        if comment:
+            self.current_profile.double_press_comments[control_name] = comment
+        else:
+            # Remove if empty
+            self.current_profile.double_press_comments.pop(control_name, None)
+
+        self.is_modified = True
+        self._update_window_title()
+        self.save_action.setEnabled(True)
+
     def _on_modifier_config_changed(self, control_name: str, modifier_config: dict):
         """Handle modifier configuration change from editor
 
@@ -580,26 +665,30 @@ class TourBoxConfigWindow(QMainWindow):
                 # Update the action column
                 action_item = self.controls_list.table.item(row, 1)
                 if action_item:
+                    # Determine the base readable action
                     if modifier_config.get('is_modifier'):
-                        # Show base action
+                        # Show base action for modifiers
                         base_action = modifier_config.get('base_action', '')
                         if base_action:
                             readable_action = self._action_to_readable(base_action)
-                            action_item.setText(readable_action)
                         else:
-                            action_item.setText("(no base action)")
+                            readable_action = "(no base action)"
                     else:
-                        # Modifier was unchecked - show the regular action
-                        # First check modified_mappings, otherwise fall back to base_action from config
+                        # Non-modifier - show regular action
                         if control_name in self.modified_mappings:
                             readable_action = self._action_to_readable(self.modified_mappings[control_name])
-                            action_item.setText(readable_action)
                         elif modifier_config.get('base_action'):
-                            # Use base_action as fallback when unchecking modifier
                             readable_action = self._action_to_readable(modifier_config['base_action'])
-                            action_item.setText(readable_action)
                         else:
-                            action_item.setText("(unmapped)")
+                            readable_action = "(unmapped)"
+
+                    # Append double-press suffix if configured
+                    dp_action = self.current_profile.double_press_actions.get(control_name, '')
+                    if dp_action:
+                        dp_readable = self._action_to_readable(dp_action)
+                        readable_action = f"{readable_action} (2×: {dp_readable})"
+
+                    action_item.setText(readable_action)
                 break
 
         if modifier_config.get('is_modifier'):

@@ -45,6 +45,11 @@ class Profile:
     # Profile enabled state (disabled profiles are skipped during window matching)
     enabled: bool = True
 
+    # Double-click configuration
+    double_click_timeout: int = 300  # ms, default
+    double_press_actions: Dict[str, str] = field(default_factory=dict)  # control -> action string
+    double_press_comments: Dict[str, str] = field(default_factory=dict)  # control -> comment
+
     def matches(self, window_info) -> bool:
         """Check if this profile matches the given window info"""
         # Disabled profiles never match (except default which is always enabled)

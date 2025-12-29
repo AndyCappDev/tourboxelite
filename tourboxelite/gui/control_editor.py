@@ -560,6 +560,263 @@ class ComboConfigDialog(QDialog):
         return self.haptic_speed_combo.currentData()
 
 
+class DoublePressDialog(QDialog):
+    """Dialog for configuring double-press action"""
+
+    def __init__(self, parent=None, control_name: str = "", action: str = "",
+                 comment: str = "", timeout: int = 300):
+        super().__init__(parent)
+        self.setWindowTitle("Configure Double-Press Action")
+        self.setMinimumWidth(450)
+
+        layout = QVBoxLayout(self)
+
+        # Title and info
+        title = QLabel(f"Double-Press Action for: {control_name}")
+        title.setStyleSheet("font-weight: bold; font-size: 13px;")
+        layout.addWidget(title)
+
+        info_label = QLabel(
+            f"This action triggers when the button is pressed twice within {timeout}ms.\n"
+            f"Single-press actions will have ~{timeout}ms latency when enabled."
+        )
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet("color: #666; font-size: 10px; margin-bottom: 10px;")
+        layout.addWidget(info_label)
+
+        # Action type selection
+        action_type_layout = QHBoxLayout()
+        action_type_layout.addWidget(QLabel("Action Type:"))
+        self.action_type_combo = QComboBox()
+        self.action_type_combo.addItems(["Keyboard", "Mouse"])
+        fm = self.action_type_combo.fontMetrics()
+        self.action_type_combo.setMinimumHeight(int(fm.lineSpacing() * TEXT_EDIT_HEIGHT_MULTIPLIER))
+        self.action_type_combo.currentTextChanged.connect(self._on_action_type_changed)
+        action_type_layout.addWidget(self.action_type_combo)
+        action_type_layout.addStretch()
+        layout.addLayout(action_type_layout)
+
+        # Keyboard action group
+        self.keyboard_group = QGroupBox("Keyboard Action")
+        keyboard_layout = QVBoxLayout(self.keyboard_group)
+
+        button_height = int(fm.lineSpacing() * TEXT_EDIT_HEIGHT_MULTIPLIER)
+
+        # Modifiers
+        mod_layout = QHBoxLayout()
+        self.ctrl_btn = QPushButton("Ctrl")
+        self.ctrl_btn.setCheckable(True)
+        self.ctrl_btn.setMaximumWidth(80)
+        self.ctrl_btn.setMinimumHeight(button_height)
+        mod_layout.addWidget(self.ctrl_btn)
+
+        self.alt_btn = QPushButton("Alt")
+        self.alt_btn.setCheckable(True)
+        self.alt_btn.setMaximumWidth(80)
+        self.alt_btn.setMinimumHeight(button_height)
+        mod_layout.addWidget(self.alt_btn)
+
+        self.shift_btn = QPushButton("Shift")
+        self.shift_btn.setCheckable(True)
+        self.shift_btn.setMaximumWidth(80)
+        self.shift_btn.setMinimumHeight(button_height)
+        mod_layout.addWidget(self.shift_btn)
+
+        self.super_btn = QPushButton("Super")
+        self.super_btn.setCheckable(True)
+        self.super_btn.setMaximumWidth(80)
+        self.super_btn.setMinimumHeight(button_height)
+        mod_layout.addWidget(self.super_btn)
+
+        mod_layout.addStretch()
+        keyboard_layout.addLayout(mod_layout)
+
+        # Key input
+        key_layout = QHBoxLayout()
+        key_layout.addWidget(QLabel("Key:"))
+
+        self.key_input = QLineEdit()
+        self.key_input.setPlaceholderText("Type a character")
+        self.key_input.setMaxLength(1)
+        self.key_input.setMaximumWidth(150)
+        self.key_input.setMinimumHeight(button_height)
+        self.key_input.textChanged.connect(self._on_key_input_changed)
+        key_layout.addWidget(self.key_input)
+
+        key_layout.addWidget(QLabel("or"))
+
+        self.special_key_combo = QComboBox()
+        for key_name in SPECIAL_KEYS.keys():
+            self.special_key_combo.addItem(key_name)
+            if SPECIAL_KEYS[key_name] is None:
+                idx = self.special_key_combo.count() - 1
+                self.special_key_combo.model().item(idx).setEnabled(False)
+        self.special_key_combo.setMaximumWidth(150)
+        self.special_key_combo.setMinimumHeight(button_height)
+        self.special_key_combo.currentTextChanged.connect(self._on_special_key_changed)
+        key_layout.addWidget(self.special_key_combo)
+
+        key_layout.addStretch()
+        keyboard_layout.addLayout(key_layout)
+
+        layout.addWidget(self.keyboard_group)
+
+        # Mouse action group
+        self.mouse_group = QGroupBox("Mouse Action")
+        mouse_layout = QHBoxLayout(self.mouse_group)
+        mouse_layout.addWidget(QLabel("Action:"))
+        self.mouse_combo = QComboBox()
+        self.mouse_combo.addItems([
+            "Scroll Up", "Scroll Down", "Scroll Left", "Scroll Right",
+            "Left Click", "Right Click", "Middle Click"
+        ])
+        self.mouse_combo.setMinimumHeight(button_height)
+        mouse_layout.addWidget(self.mouse_combo)
+        mouse_layout.addStretch()
+        layout.addWidget(self.mouse_group)
+        self.mouse_group.hide()
+
+        # Comment field
+        comment_layout = QHBoxLayout()
+        comment_layout.addWidget(QLabel("Comment:"))
+        self.comment_input = QLineEdit()
+        self.comment_input.setPlaceholderText("Notes for this action...")
+        self.comment_input.setMinimumHeight(button_height)
+        self.comment_input.setText(comment)
+        comment_layout.addWidget(self.comment_input)
+        layout.addLayout(comment_layout)
+
+        # Dialog buttons
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+        # Parse and populate if editing existing action
+        if action:
+            self._parse_and_populate(action)
+
+    def _on_action_type_changed(self, action_type: str):
+        if action_type == "Keyboard":
+            self.keyboard_group.show()
+            self.mouse_group.hide()
+        else:
+            self.keyboard_group.hide()
+            self.mouse_group.show()
+
+    def _on_key_input_changed(self, text: str):
+        if text:
+            self.special_key_combo.setCurrentIndex(0)
+
+    def _on_special_key_changed(self, key_name: str):
+        if key_name and key_name != "None" and SPECIAL_KEYS.get(key_name) is not None:
+            self.key_input.clear()
+
+    def _parse_and_populate(self, action_str: str):
+        """Parse action string and populate UI"""
+        if not action_str:
+            return
+
+        # Check for mouse action
+        if action_str.startswith("REL_WHEEL:") or action_str.startswith("REL_HWHEEL:"):
+            self.action_type_combo.setCurrentText("Mouse")
+            if action_str.startswith("REL_WHEEL:"):
+                value = int(action_str.split(":")[1])
+                self.mouse_combo.setCurrentText("Scroll Up" if value > 0 else "Scroll Down")
+            else:
+                value = int(action_str.split(":")[1])
+                self.mouse_combo.setCurrentText("Scroll Right" if value > 0 else "Scroll Left")
+            return
+
+        if action_str in ("BTN_LEFT", "BTN_RIGHT", "BTN_MIDDLE"):
+            self.action_type_combo.setCurrentText("Mouse")
+            if action_str == "BTN_LEFT":
+                self.mouse_combo.setCurrentText("Left Click")
+            elif action_str == "BTN_RIGHT":
+                self.mouse_combo.setCurrentText("Right Click")
+            else:
+                self.mouse_combo.setCurrentText("Middle Click")
+            return
+
+        # Keyboard action
+        self.action_type_combo.setCurrentText("Keyboard")
+        parts = action_str.split("+")
+        for part in parts:
+            part = part.strip().upper()
+            if "CTRL" in part:
+                self.ctrl_btn.setChecked(True)
+            elif "ALT" in part:
+                self.alt_btn.setChecked(True)
+            elif "SHIFT" in part:
+                self.shift_btn.setChecked(True)
+            elif "META" in part or "SUPER" in part:
+                self.super_btn.setChecked(True)
+            else:
+                key_part = part
+                if key_part.startswith("KEY_"):
+                    key_part = key_part[4:]
+                if key_part in KEYCODE_TO_CHAR:
+                    key_part = KEYCODE_TO_CHAR[key_part]
+                if len(key_part) == 1:
+                    self.key_input.setText(key_part.lower())
+                else:
+                    for i in range(self.special_key_combo.count()):
+                        if self.special_key_combo.itemText(i).upper().replace(" ", "") == key_part.replace("_", ""):
+                            self.special_key_combo.setCurrentIndex(i)
+                            break
+
+    def get_action(self) -> str:
+        """Get configured action string"""
+        action_type = self.action_type_combo.currentText()
+
+        if action_type == "Mouse":
+            action = self.mouse_combo.currentText()
+            if action == "Scroll Up":
+                return "REL_WHEEL:1"
+            elif action == "Scroll Down":
+                return "REL_WHEEL:-1"
+            elif action == "Scroll Left":
+                return "REL_HWHEEL:-1"
+            elif action == "Scroll Right":
+                return "REL_HWHEEL:1"
+            elif action == "Left Click":
+                return "BTN_LEFT"
+            elif action == "Right Click":
+                return "BTN_RIGHT"
+            elif action == "Middle Click":
+                return "BTN_MIDDLE"
+
+        # Keyboard action
+        parts = []
+        if self.ctrl_btn.isChecked():
+            parts.append("KEY_LEFTCTRL")
+        if self.alt_btn.isChecked():
+            parts.append("KEY_LEFTALT")
+        if self.shift_btn.isChecked():
+            parts.append("KEY_LEFTSHIFT")
+        if self.super_btn.isChecked():
+            parts.append("KEY_LEFTMETA")
+
+        if self.key_input.text():
+            char = self.key_input.text()
+            if char in CHAR_TO_KEYCODE:
+                parts.append(f"KEY_{CHAR_TO_KEYCODE[char]}")
+            else:
+                parts.append(f"KEY_{char.upper()}")
+        elif self.special_key_combo.currentText() != "None":
+            key_name = self.special_key_combo.currentText()
+            if SPECIAL_KEYS.get(key_name):
+                for name, code in e.__dict__.items():
+                    if name.startswith('KEY_') and code == SPECIAL_KEYS[key_name]:
+                        parts.append(name)
+                        break
+
+        return "+".join(parts) if parts else ""
+
+    def get_comment(self) -> str:
+        return self.comment_input.text().strip()
+
+
 class ControlEditor(QWidget):
     """Widget for editing a control's action"""
 
@@ -570,6 +827,8 @@ class ControlEditor(QWidget):
     combo_selected = Signal(str)  # combo_control_name (control selected from Modifier Combinations table)
     haptic_changed = Signal(str, object, object)  # dial_name, HapticStrength or None, HapticSpeed or None
     combo_haptic_changed = Signal(str, str, object, object)  # modifier_name, dial_name, HapticStrength or None, HapticSpeed or None
+    double_press_action_changed = Signal(str, str)  # control_name, action_string (empty to clear)
+    double_press_comment_changed = Signal(str, str)  # control_name, comment
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -577,6 +836,7 @@ class ControlEditor(QWidget):
         self.current_dial = None  # Track which dial we're editing (for haptic)
         self.combo_haptics = {}  # Track haptic strength for combos: (modifier, dial) -> HapticStrength
         self.combo_haptic_speeds = {}  # Track haptic speed for combos: (modifier, dial) -> HapticSpeed
+        self.current_double_click_timeout = 300  # Track current profile's timeout for display
         self._init_ui()
 
     def _init_ui(self):
@@ -773,6 +1033,32 @@ class ControlEditor(QWidget):
 
         layout.addWidget(self.comment_group)
 
+        # Double-Press Action section (compact - opens dialog)
+        self.double_press_section = QWidget()
+        dp_section_layout = QHBoxLayout(self.double_press_section)
+        dp_section_layout.setContentsMargins(0, 5, 0, 5)
+
+        dp_label = QLabel("Double-Press:")
+        dp_section_layout.addWidget(dp_label)
+
+        self.dp_action_label = QLabel("(none)")
+        self.dp_action_label.setStyleSheet("color: #666;")
+        dp_section_layout.addWidget(self.dp_action_label)
+
+        dp_section_layout.addStretch()
+
+        self.dp_configure_btn = QPushButton("Configure...")
+        self.dp_configure_btn.clicked.connect(self._on_configure_double_press)
+        dp_section_layout.addWidget(self.dp_configure_btn)
+
+        self.dp_clear_btn = QPushButton("Clear")
+        self.dp_clear_btn.clicked.connect(self._on_dp_clear)
+        self.dp_clear_btn.setEnabled(False)
+        dp_section_layout.addWidget(self.dp_clear_btn)
+
+        layout.addWidget(self.double_press_section)
+        self.double_press_section.hide()  # Hidden for rotary controls
+
         # Modifier Combinations section (only visible for physical buttons)
         # No groupbox wrapper - just the label, table, and button
         self.combos_label = QLabel("Modifier Combinations:")
@@ -806,8 +1092,10 @@ class ControlEditor(QWidget):
         if header_height < 20:
             header_height = int(fm.lineSpacing() * 1.5)  # Base on font size
 
-        # Calculate max height: 6 rows + header + frame/borders (shows ~4 rows initially, can grow to 6)
-        max_table_height = row_height * 6 + header_height + 4
+        # Calculate min/max height: min 2 rows, max 4 rows + header + frame/borders
+        min_table_height = row_height * 2 + header_height + 4
+        max_table_height = row_height * 4 + header_height + 4
+        self.combos_table.setMinimumHeight(min_table_height)
         self.combos_table.setMaximumHeight(max_table_height)
         self.combos_table.itemSelectionChanged.connect(self._on_combo_selection_changed)
         layout.addWidget(self.combos_table)
@@ -835,7 +1123,9 @@ class ControlEditor(QWidget):
 
     def load_control(self, control_name: str, current_action: str, comment: str = "",
                      modifier_combos: dict = None, haptic_strength: Optional[HapticStrength] = None,
-                     haptic_speed: Optional[HapticSpeed] = None):
+                     haptic_speed: Optional[HapticSpeed] = None,
+                     double_press_action: str = "", double_press_comment: str = "",
+                     double_click_timeout: int = 300):
         """Load a control for editing
 
         Args:
@@ -845,6 +1135,9 @@ class ControlEditor(QWidget):
             modifier_combos: Dict of control_name -> (action, comment) for combos (optional)
             haptic_strength: Current haptic strength for rotary controls (None = use profile default)
             haptic_speed: Current haptic speed for rotary controls (None = use profile default)
+            double_press_action: Current double-press action string (optional)
+            double_press_comment: Comment for double-press action (optional)
+            double_click_timeout: Current profile's double-click timeout in ms
         """
         self.current_control = control_name
         self.current_dial = ROTARY_TO_DIAL.get(control_name)  # None for non-rotary
@@ -874,6 +1167,18 @@ class ControlEditor(QWidget):
         else:
             self.haptic_group.hide()
 
+        # Show/hide double-press section based on control type
+        # Rotary controls can't have double-press
+        is_rotary = control_name in ('scroll_up', 'scroll_down', 'knob_cw', 'knob_ccw', 'dial_cw', 'dial_ccw')
+        if is_rotary:
+            self.double_press_section.hide()
+        else:
+            self.double_press_section.show()
+            self.current_double_click_timeout = double_click_timeout
+            self._current_dp_action = double_press_action
+            self._current_dp_comment = double_press_comment
+            self._update_dp_display()
+
         # Parse and populate the action UI
         self._parse_and_populate(current_action)
 
@@ -883,13 +1188,11 @@ class ControlEditor(QWidget):
         # Check if this control can have modifier combinations (physical button only)
         can_have_combos = control_name in VALID_MODIFIER_BUTTONS
 
-        # Always show modifier combinations section, but enable/disable based on control type
-        self.combos_label.show()
-        self.combos_table.show()
-        self.add_combo_btn.show()
-
         if can_have_combos:
-            # Enable modifier combinations for physical buttons
+            # Show and enable modifier combinations for physical buttons
+            self.combos_label.show()
+            self.combos_table.show()
+            self.add_combo_btn.show()
             self.combos_table.setEnabled(True)
             self.add_combo_btn.setEnabled(True)
 
@@ -903,9 +1206,11 @@ class ControlEditor(QWidget):
                 if self.combos_table.rowCount() > 0:
                     self.combos_table.selectRow(0)
         else:
-            # Not a physical button - disable modifier combinations (but keep visible)
-            self.combos_table.setEnabled(False)
-            self.add_combo_btn.setEnabled(False)
+            # Not a physical button - hide modifier combinations section entirely
+            # (rotary controls can't be modifiers, so no need to show this)
+            self.combos_label.hide()
+            self.combos_table.hide()
+            self.add_combo_btn.hide()
 
         logger.info(f"Loaded control for editing: {control_name}")
 
@@ -1062,6 +1367,15 @@ class ControlEditor(QWidget):
         # Emit comment (always, even if empty)
         comment = self.comment_text.toPlainText().strip()
         self.comment_changed.emit(self.current_control, comment)
+
+        # Emit double-press action change (for non-rotary controls)
+        is_rotary = self.current_control in ('scroll_up', 'scroll_down', 'knob_cw', 'knob_ccw', 'dial_cw', 'dial_ccw')
+        if not is_rotary:
+            dp_action = self._build_dp_action_string()
+            dp_comment = self._get_dp_comment()
+            self.double_press_action_changed.emit(self.current_control, dp_action)
+            self.double_press_comment_changed.emit(self.current_control, dp_comment)
+            logger.info(f"Apply double-press: {self.current_control} -> {dp_action or '(none)'}")
 
         # Emit haptic change for rotary controls
         if self.current_dial:
@@ -1397,3 +1711,46 @@ class ControlEditor(QWidget):
                 readable_parts.append(part)
 
         return "+".join(readable_parts)
+
+    # Double-press action methods
+
+    def _update_dp_display(self):
+        """Update the double-press action label display"""
+        if self._current_dp_action:
+            readable = self._action_to_readable(self._current_dp_action)
+            self.dp_action_label.setText(readable)
+            self.dp_action_label.setStyleSheet("")  # Normal color
+            self.dp_clear_btn.setEnabled(True)
+        else:
+            self.dp_action_label.setText("(none)")
+            self.dp_action_label.setStyleSheet("color: #666;")
+            self.dp_clear_btn.setEnabled(False)
+
+    def _on_configure_double_press(self):
+        """Open dialog to configure double-press action"""
+        dialog = DoublePressDialog(
+            self,
+            control_name=self.current_control,
+            action=self._current_dp_action,
+            comment=self._current_dp_comment,
+            timeout=self.current_double_click_timeout
+        )
+
+        if dialog.exec() == QDialog.Accepted:
+            self._current_dp_action = dialog.get_action()
+            self._current_dp_comment = dialog.get_comment()
+            self._update_dp_display()
+
+    def _on_dp_clear(self):
+        """Clear the double-press action"""
+        self._current_dp_action = ""
+        self._current_dp_comment = ""
+        self._update_dp_display()
+
+    def _build_dp_action_string(self) -> str:
+        """Get the current double-press action string"""
+        return self._current_dp_action if hasattr(self, '_current_dp_action') else ""
+
+    def _get_dp_comment(self) -> str:
+        """Get the current double-press comment"""
+        return self._current_dp_comment if hasattr(self, '_current_dp_comment') else ""
