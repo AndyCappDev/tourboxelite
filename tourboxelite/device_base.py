@@ -103,11 +103,8 @@ class TourBoxBase(ABC):
         # Maps combo_target_button -> list of (event_type, event_code, value) press events
         self.active_combo_events: Dict[str, List[Tuple[int, int, int]]] = {}
 
-        # Double-click state tracking
-        self._double_click_first_press: Dict[str, float] = {}  # control -> timestamp
-        self._double_click_pending_task: Dict[str, asyncio.Task] = {}  # control -> timer task
-        self._double_click_pending_events: Dict[str, List] = {}  # control -> single-press events
-        self._double_click_released_while_pending: Set[str] = set()  # controls released during pending period
+        # Double-click state tracking (immediate fire - no timer-based deferral)
+        self._double_click_first_press: Dict[str, float] = {}  # control -> timestamp of first press
         self._double_click_active_events: Dict[str, List] = {}  # control -> active double-press events (for release)
 
         # Pending base action tracking - for modifier buttons with combos configured
@@ -115,6 +112,13 @@ class TourBoxBase(ABC):
         self._pending_base_action_task: Dict[str, asyncio.Task] = {}  # modifier -> timer task
         self._pending_base_action_events: Dict[str, List] = {}  # modifier -> base action events
         self._pending_base_action_released: Set[str] = set()  # modifiers released while pending
+
+        # On-release button tracking - buttons that fire on release as a tap
+        self._on_release_pending: Dict[str, List[Tuple[int, int, int]]] = {}  # control -> deferred events
+        # On-release combo tracking - for on_release buttons pressed while modifier active
+        self._on_release_combo_pending: Dict[str, Tuple[str, List]] = {}  # control -> (modifier_name, combo_events)
+        # On-release modifier tracking - modifier buttons with on_release that need base action on release
+        self._on_release_modifier_pending: Dict[str, List[Tuple[int, int, int]]] = {}  # control -> base action events
 
     def is_modifier_button(self, control_name: str) -> bool:
         """Check if a control is configured as a modifier button
@@ -235,69 +239,9 @@ class TourBoxBase(ABC):
             return parse_action(action_str)
         return None
 
-    async def _schedule_double_click_timeout(self, control_name: str, single_press_events: List):
-        """Schedule delayed single-press action execution
-
-        Args:
-            control_name: Name of the control
-            single_press_events: Events to execute if timeout expires (single-press)
-        """
-        timeout_sec = self.current_profile.double_click_timeout / 1000.0
-
-        try:
-            await asyncio.sleep(timeout_sec)
-
-            # Timeout expired - execute single-press action
-            if control_name in self._double_click_first_press:
-                was_released = control_name in self._double_click_released_while_pending
-
-                logger.info(f"Double-click timeout expired for {control_name}, executing single-press"
-                           f"{' (with release)' if was_released else ''}")
-
-                # Send press events
-                for event in single_press_events:
-                    self.controller.write(*event)
-                self.controller.syn()
-
-                # Check if button was released while pending
-                if was_released:
-                    # Also send release events (quick tap completed before timeout)
-                    release_events = []
-                    for event_type, event_code, value in single_press_events:
-                        if event_type == e.EV_KEY and value == 1:
-                            release_events.append((event_type, event_code, 0))
-
-                    if release_events:
-                        for event in release_events:
-                            self.controller.write(*event)
-                        self.controller.syn()
-
-                    self._double_click_released_while_pending.discard(control_name)
-                else:
-                    # Track for last-wins behavior (button still held)
-                    if control_name in HOLDABLE_BUTTONS:
-                        press_events = [(t, c, v) for t, c, v in single_press_events
-                                       if t == e.EV_KEY and v == 1]
-                        if press_events:
-                            self.active_button_events[control_name] = press_events
-
-                # Clean up state
-                del self._double_click_first_press[control_name]
-                del self._double_click_pending_task[control_name]
-                self._double_click_pending_events.pop(control_name, None)
-
-        except asyncio.CancelledError:
-            # Timer was cancelled (double-press detected or profile switch)
-            self._double_click_released_while_pending.discard(control_name)
-
     def _cancel_double_click_timers(self):
-        """Cancel all pending double-click timers and clear state"""
-        for task in self._double_click_pending_task.values():
-            task.cancel()
+        """Clear double-click detection state"""
         self._double_click_first_press.clear()
-        self._double_click_pending_task.clear()
-        self._double_click_pending_events.clear()
-        self._double_click_released_while_pending.clear()
         self._double_click_active_events.clear()
 
     async def _schedule_base_action_timeout(self, modifier_name: str, base_events: List):
@@ -391,80 +335,86 @@ class TourBoxBase(ABC):
             # Skip rotary controls - they can't have double-click
             is_rotary = control_name in ('scroll_up', 'scroll_down', 'knob_cw', 'knob_ccw', 'dial_cw', 'dial_ccw')
 
-            if not is_rotary and self.has_double_press_action(control_name):
+            # Skip on_release controls - they handle double-press differently (in Step 4)
+            is_on_release = self.current_profile and control_name in self.current_profile.on_release_controls
+
+            # Skip if there's an active modifier with a combo for this button - let Step 3 handle it
+            has_active_combo = self.active_modifiers and self.get_modified_action(control_name)
+
+            if not is_rotary and not is_on_release and not has_active_combo and self.has_double_press_action(control_name):
                 if is_press:
-                    # Check if there's a pending first-press timer
-                    if control_name in self._double_click_pending_task:
-                        # Second press within timeout - execute double-press action
-                        self._double_click_pending_task[control_name].cancel()
-                        del self._double_click_pending_task[control_name]
-                        del self._double_click_first_press[control_name]
-                        self._double_click_pending_events.pop(control_name, None)
+                    # IMMEDIATE FIRE: Check if this is second press (double-press detection)
+                    if control_name in self._double_click_first_press:
+                        elapsed_ms = (time.time() - self._double_click_first_press[control_name]) * 1000
+                        if elapsed_ms < self.current_profile.double_click_timeout:
+                            # Double-press detected! Fire double-press action
+                            del self._double_click_first_press[control_name]
+                            double_events = self.get_double_press_events(control_name)
+                            if double_events:
+                                logger.info(f"Double-press detected: {control_name} ({elapsed_ms:.0f}ms)")
 
-                        # Execute double-press action
-                        double_events = self.get_double_press_events(control_name)
-                        if double_events:
-                            logger.info(f"Double-press detected: {control_name}")
+                                # Last-wins: release other buttons first
+                                if control_name in HOLDABLE_BUTTONS:
+                                    self._release_previous_buttons(control_name)
+                                    press_events = [(t, c, v) for t, c, v in double_events
+                                                   if t == e.EV_KEY and v == 1]
+                                    if press_events:
+                                        self.active_button_events[control_name] = press_events
 
+                                # Track for release handling
+                                self._double_click_active_events[control_name] = double_events
+
+                                for event in double_events:
+                                    self.controller.write(*event)
+                                self.controller.syn()
+                            return
+                        else:
+                            # Too slow - treat as new first press
+                            del self._double_click_first_press[control_name]
+
+                    # First press (or new first press after timeout) - track timestamp
+                    # IMMEDIATE FIRE: Execute base action right now (no deferral)
+                    self._double_click_first_press[control_name] = time.time()
+                    logger.debug(f"Double-press tracking started for {control_name}")
+
+                    # Fire base action immediately - bypass modifier deferral logic
+                    if self.is_modifier_button(control_name):
+                        # It's a modifier button with double-press
+                        self.active_modifiers.add(control_name)
+                        if control_name in self.modifier_base_actions:
+                            base_events = self.modifier_base_actions[control_name]
+                            # Fire immediately (no deferral for combos)
+                            for event_type, event_code, value in base_events:
+                                if value == 1:  # Press events
+                                    self.controller.write(event_type, event_code, value)
+                            self.controller.syn()
+                            self.base_action_active.add(control_name)
+                            logger.info(f"Immediate fire: modifier {control_name} base action PRESSED")
+                        else:
+                            logger.info(f"Immediate fire: modifier {control_name} (no base action)")
+                    else:
+                        # Regular button with double-press
+                        base_events = self.mapping.get(data_bytes, [])
+                        if base_events:
                             # Last-wins: release other buttons first
                             if control_name in HOLDABLE_BUTTONS:
                                 self._release_previous_buttons(control_name)
-                                press_events = [(t, c, v) for t, c, v in double_events
+                                press_events = [(t, c, v) for t, c, v in base_events
                                                if t == e.EV_KEY and v == 1]
                                 if press_events:
                                     self.active_button_events[control_name] = press_events
 
-                            # Track for release handling
-                            self._double_click_active_events[control_name] = double_events
-
-                            for event in double_events:
+                            # Fire the base action
+                            for event in base_events:
                                 self.controller.write(*event)
                             self.controller.syn()
-                        return
-                    else:
-                        # First press - defer execution and start timer
-                        # Get the normal single-press events
-                        single_events = self.mapping.get(data_bytes, [])
-
-                        # For modifier buttons, get base action from modifier_base_actions
-                        if not single_events and control_name in self.modifier_base_actions:
-                            single_events = self.modifier_base_actions[control_name]
-
-                        # Track modifier state for combo detection (even when deferring)
-                        if control_name in self.modifier_buttons:
-                            self.active_modifiers.add(control_name)
-                            logger.info(f"Modifier {control_name} PRESSED (double-click path), active: {self.active_modifiers}")
-
-                        if single_events:
-                            self._double_click_first_press[control_name] = time.time()
-                            self._double_click_pending_events[control_name] = single_events
-
-                            # Last-wins: release other buttons first (before the deferred action)
-                            if control_name in HOLDABLE_BUTTONS:
-                                self._release_previous_buttons(control_name)
-
-                            # Schedule timeout
-                            loop = asyncio.get_event_loop()
-                            task = loop.create_task(
-                                self._schedule_double_click_timeout(control_name, single_events)
-                            )
-                            self._double_click_pending_task[control_name] = task
-
-                            logger.info(f"Double-click detection started for {control_name} ({self.current_profile.double_click_timeout}ms)")
-                        return
+                            logger.info(f"Immediate fire: {control_name} base action fired")
+                    return  # Don't fall through - we handled the press
                 else:
-                    # Release event for button with double-click
-                    # Clear modifier state if this was a modifier
-                    if control_name in self.modifier_buttons and control_name in self.active_modifiers:
-                        self.active_modifiers.discard(control_name)
-                        logger.info(f"Modifier {control_name} RELEASED (double-click path), active: {self.active_modifiers}")
-
-                    if control_name in self._double_click_pending_task:
-                        # Button released while timer pending - mark it
-                        # The timeout handler will include release events
-                        self._double_click_released_while_pending.add(control_name)
-                        logger.debug(f"Button {control_name} released while double-click pending")
-                        return  # Don't process release now, timeout handler will do it
+                    # Release event for button with double-press
+                    # NOTE: Do NOT clear first-press timestamp here!
+                    # We need it to persist so second press can detect double-press.
+                    # It gets cleared when: double-press fires, or next press is too late.
 
                     # Check if this is releasing an active double-press action
                     if control_name in self._double_click_active_events:
@@ -485,21 +435,7 @@ class TourBoxBase(ABC):
                         self.active_button_events.pop(control_name, None)
                         return
 
-                    # Check if this is releasing a post-timeout single-press (long press case)
-                    if control_name in self.active_button_events:
-                        # Release the single-press action keys that were sent after timeout
-                        press_events = self.active_button_events.pop(control_name)
-                        release_events = []
-                        for event_type, event_code, value in press_events:
-                            release_events.append((event_type, event_code, 0))
-
-                        if release_events:
-                            logger.info(f"Single-press release (post-timeout): {control_name}")
-                            for event in release_events:
-                                self.controller.write(*event)
-                            self.controller.syn()
-                        return
-                    # For other cases, fall through to normal handling
+                    # For normal release, fall through to Step 4 to release base action
 
         # Step 1: Identify control name and press/release state
         # (already done above, reuse control_info)
@@ -509,6 +445,32 @@ class TourBoxBase(ABC):
             control_name, is_press = control_info
 
             if self.is_modifier_button(control_name):
+                # Check for second press of on_release modifier double-press (immediate fire)
+                is_on_release_modifier = (self.current_profile and
+                                          control_name in self.current_profile.on_release_controls)
+                if is_press and is_on_release_modifier and control_name in self._double_click_first_press:
+                    elapsed_ms = (time.time() - self._double_click_first_press[control_name]) * 1000
+                    if elapsed_ms < self.current_profile.double_click_timeout:
+                        # Second press within timeout - fire double action as tap
+                        del self._double_click_first_press[control_name]
+                        dp_events = self.get_double_press_events(control_name)
+                        if dp_events:
+                            logger.info(f"Modifier {control_name} on_release: double-press detected ({elapsed_ms:.0f}ms)")
+                            # Fire as tap (press + release)
+                            for event_type, event_code, value in dp_events:
+                                self.controller.write(event_type, event_code, value)
+                            self.controller.syn()
+                            for event_type, event_code, value in dp_events:
+                                if event_type == e.EV_KEY and value == 1:
+                                    self.controller.write(event_type, event_code, 0)
+                            self.controller.syn()
+                        # Still track as modifier for potential combos
+                        self.active_modifiers.add(control_name)
+                        return
+                    else:
+                        # Too slow - clear timestamp, treat as new first press
+                        del self._double_click_first_press[control_name]
+
                 # This is a modifier button - but check if it should trigger a combo first
                 # (e.g., Tour is active, Side is pressed, and tour.side combo exists)
                 if is_press and self.active_modifiers:
@@ -528,8 +490,12 @@ class TourBoxBase(ABC):
                         if control_name in self.modifier_base_actions:
                             events = self.modifier_base_actions[control_name]
 
+                            # Check if this modifier has on_release enabled - defer until release
+                            if self.current_profile and control_name in self.current_profile.on_release_controls:
+                                self._on_release_modifier_pending[control_name] = events
+                                logger.info(f"Modifier {control_name} base action DEFERRED (on_release enabled)")
                             # Check if this modifier has combos - if so, defer base action
-                            if self.modifier_has_combos(control_name):
+                            elif self.modifier_has_combos(control_name):
                                 # Defer base action to allow combo detection
                                 self._pending_base_action_events[control_name] = events
                                 loop = asyncio.get_event_loop()
@@ -558,8 +524,12 @@ class TourBoxBase(ABC):
                     if control_name in self.modifier_base_actions:
                         events = self.modifier_base_actions[control_name]
 
+                        # Check if this modifier has on_release enabled - defer until release
+                        if self.current_profile and control_name in self.current_profile.on_release_controls:
+                            self._on_release_modifier_pending[control_name] = events
+                            logger.info(f"Modifier {control_name} base action DEFERRED (on_release enabled)")
                         # Check if this modifier has combos - if so, defer base action
-                        if self.modifier_has_combos(control_name):
+                        elif self.modifier_has_combos(control_name):
                             # Defer base action to allow combo detection
                             self._pending_base_action_events[control_name] = events
                             loop = asyncio.get_event_loop()
@@ -585,6 +555,35 @@ class TourBoxBase(ABC):
                     if control_name in self.active_modifiers:
                         self.active_modifiers.discard(control_name)
                         logger.info(f"Modifier {control_name} RELEASED, active: {self.active_modifiers}")
+
+                        # Check if this is an on_release modifier - fire base action as tap if no combo used
+                        if control_name in self._on_release_modifier_pending:
+                            events = self._on_release_modifier_pending.pop(control_name)
+                            # Only fire if no combo was used
+                            if control_name not in self.combo_used:
+                                # Fire base action immediately as tap (immediate fire for on_release)
+                                for event_type, event_code, value in events:
+                                    self.controller.write(event_type, event_code, value)
+                                self.controller.syn()
+                                # Immediately send release events
+                                for event_type, event_code, value in events:
+                                    if event_type == e.EV_KEY and value == 1:
+                                        self.controller.write(event_type, event_code, 0)
+                                self.controller.syn()
+
+                                # Check if control has double-press action configured - track for detection
+                                dp_action = self.current_profile.double_press_actions.get(control_name, "") if self.current_profile else ""
+                                if dp_action:
+                                    # Track timestamp for double-press detection on next press
+                                    self._double_click_first_press[control_name] = time.time()
+                                    logger.info(f"Modifier {control_name} on_release: fired base action as tap, tracking for double-press")
+                                else:
+                                    logger.info(f"Modifier {control_name} on_release: fired base action as tap")
+                            else:
+                                logger.info(f"Modifier {control_name} on_release: combo was used, skipping base action")
+                            # Reset combo usage tracking
+                            self.combo_used.discard(control_name)
+                            return
 
                         # Check if base action is still pending (not yet sent)
                         if control_name in self._pending_base_action_task:
@@ -614,6 +613,22 @@ class TourBoxBase(ABC):
         # Step 3: Check for modified action (combo)
         if control_info:
             control_name, is_press = control_info
+
+            # Check for pending on_release combo (fire as tap on release)
+            if not is_press and control_name in self._on_release_combo_pending:
+                modifier_name, combo_events = self._on_release_combo_pending.pop(control_name)
+                # Fire combo as tap (press + release)
+                # Send press events
+                for event_type, event_code, value in combo_events:
+                    self.controller.write(event_type, event_code, value)
+                self.controller.syn()
+                # Immediately send release events
+                for event_type, event_code, value in combo_events:
+                    if event_type == e.EV_KEY and value == 1:
+                        self.controller.write(event_type, event_code, 0)
+                self.controller.syn()
+                logger.info(f"On-release combo: fired {modifier_name}.{control_name} as tap")
+                return
 
             # Check for active combo first (for release when modifier is already released)
             if not is_press and control_name in self.active_combo_events:
@@ -647,14 +662,31 @@ class TourBoxBase(ABC):
                 modifier_name = next(iter(self.active_modifiers))
 
                 if is_press:
-                    # Combo button pressed - cancel any pending double-click timer for the modifier
-                    if modifier_name in self._double_click_pending_task:
-                        self._double_click_pending_task[modifier_name].cancel()
-                        del self._double_click_pending_task[modifier_name]
+                    # Check if this is an on_release control - defer combo until release
+                    if self.current_profile and control_name in self.current_profile.on_release_controls:
+                        # Store combo for later execution on release
+                        self._on_release_combo_pending[control_name] = (modifier_name, modified_action)
+                        # Still need to cancel timers and mark combo used
+                        # Clear double-press tracking for modifier
                         self._double_click_first_press.pop(modifier_name, None)
-                        self._double_click_pending_events.pop(modifier_name, None)
-                        self._double_click_released_while_pending.discard(modifier_name)
-                        logger.info(f"Cancelled double-click timer for {modifier_name} (combo triggered)")
+                        if modifier_name in self._pending_base_action_task:
+                            self._pending_base_action_task[modifier_name].cancel()
+                            del self._pending_base_action_task[modifier_name]
+                            self._pending_base_action_events.pop(modifier_name, None)
+                            self._pending_base_action_released.discard(modifier_name)
+                        if modifier_name in self.base_action_active:
+                            base_events = self.modifier_base_actions[modifier_name]
+                            for event_type, event_code, value in base_events:
+                                if value == 1:
+                                    self.controller.write(event_type, event_code, 0)
+                            self.controller.syn()
+                            self.base_action_active.discard(modifier_name)
+                        self.combo_used.add(modifier_name)
+                        logger.info(f"On-release combo: deferred {modifier_name}.{control_name}")
+                        return
+
+                    # Combo button pressed - clear double-press tracking for modifier
+                    self._double_click_first_press.pop(modifier_name, None)
 
                     # Combo button pressed - cancel pending base action timer if present
                     if modifier_name in self._pending_base_action_task:
@@ -714,6 +746,70 @@ class TourBoxBase(ABC):
         if data_bytes:
             mapping = self.mapping.get(data_bytes, [])
             if mapping:
+                # Check for on_release controls - defer action until release
+                if control_info and self.current_profile:
+                    control_name, is_press = control_info
+                    if control_name in self.current_profile.on_release_controls:
+                        if is_press:
+                            # Check if this is a second press (double-press detection with immediate fire)
+                            if control_name in self._double_click_first_press:
+                                elapsed_ms = (time.time() - self._double_click_first_press[control_name]) * 1000
+                                if elapsed_ms < self.current_profile.double_click_timeout:
+                                    # Second press within timeout - fire double action as tap
+                                    del self._double_click_first_press[control_name]
+                                    double_events = self.get_double_press_events(control_name)
+                                    if double_events:
+                                        logger.info(f"On-release double-press detected: {control_name} ({elapsed_ms:.0f}ms)")
+                                        # Fire double action as tap
+                                        for event in double_events:
+                                            self.controller.write(*event)
+                                        self.controller.syn()
+                                        # Immediately send release events
+                                        for event_type, event_code, value in double_events:
+                                            if event_type == e.EV_KEY and value == 1:
+                                                self.controller.write(event_type, event_code, 0)
+                                        self.controller.syn()
+                                    return
+                                else:
+                                    # Too slow - clear timestamp, treat as new first press
+                                    del self._double_click_first_press[control_name]
+
+                            # First press - store events for later (both KEY and REL events)
+                            press_events = [(t, c, v) for t, c, v in mapping
+                                           if (t == e.EV_KEY and v == 1) or t == e.EV_REL]
+                            if press_events:
+                                self._on_release_pending[control_name] = press_events
+                                logger.info(f"On-release: deferred {control_name} press")
+                            return  # Don't execute action yet
+                        else:
+                            # Release - check if has double_press configured
+                            if control_name in self._on_release_pending:
+                                pending_events = self._on_release_pending.pop(control_name)
+
+                                # Fire tap immediately (immediate fire for on_release)
+                                # Send press events (KEY events get press value, REL events use stored value)
+                                for event_type, event_code, value in pending_events:
+                                    if event_type == e.EV_KEY:
+                                        self.controller.write(event_type, event_code, 1)
+                                    elif event_type == e.EV_REL:
+                                        self.controller.write(event_type, event_code, value)
+                                self.controller.syn()
+                                # Immediately send release events (only for KEY events, not REL)
+                                for event_type, event_code, value in pending_events:
+                                    if event_type == e.EV_KEY:
+                                        self.controller.write(event_type, event_code, 0)
+                                self.controller.syn()
+
+                                # Check if this control has double-press configured - track for detection
+                                if self.has_double_press_action(control_name):
+                                    self._double_click_first_press[control_name] = time.time()
+                                    logger.info(f"On-release: fired {control_name} as tap, tracking for double-press")
+                                else:
+                                    logger.info(f"On-release: fired {control_name} as tap")
+                                return
+                            # No pending events, nothing to do
+                            return
+
                 # Last-wins behavior: release previously held buttons when a new one is pressed
                 if control_info and control_info[0] in HOLDABLE_BUTTONS:
                     control_name, is_press = control_info
@@ -772,6 +868,9 @@ class TourBoxBase(ABC):
         self.combo_used.clear()  # Clear combo usage tracking
         self.active_button_events.clear()  # Clear last-wins button tracking
         self.active_combo_events.clear()  # Clear active combo tracking
+        self._on_release_pending.clear()  # Clear on-release pending state
+        self._on_release_combo_pending.clear()  # Clear on-release combo pending state
+        self._on_release_modifier_pending.clear()  # Clear on-release modifier pending state
         self._cancel_double_click_timers()  # Cancel any pending double-click timers
         self._cancel_base_action_timers()  # Cancel any pending base action timers
 

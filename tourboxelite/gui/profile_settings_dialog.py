@@ -8,7 +8,8 @@ import logging
 from typing import Optional
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit,
-    QPushButton, QLabel, QGroupBox, QMessageBox, QProgressDialog, QComboBox
+    QPushButton, QLabel, QGroupBox, QMessageBox, QProgressDialog, QComboBox,
+    QSlider, QSpinBox
 )
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
@@ -140,26 +141,40 @@ class ProfileSettingsDialog(QDialog):
         double_click_group = QGroupBox("Double-Click")
         double_click_layout = QFormLayout(double_click_group)
 
-        self.double_click_timeout_combo = QComboBox()
-        timeout_values = [200, 250, 300, 350, 400, 450, 500]
-        for ms in timeout_values:
-            self.double_click_timeout_combo.addItem(f"{ms} ms", ms)
+        # Slider + SpinBox combo (synced) for precise control
+        timeout_widget_layout = QHBoxLayout()
+        timeout_widget_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Set current value from profile
-        current_timeout = self.result_double_click_timeout
-        timeout_index = self.double_click_timeout_combo.findData(current_timeout)
-        if timeout_index >= 0:
-            self.double_click_timeout_combo.setCurrentIndex(timeout_index)
-        else:
-            # Default to 300ms if not found
-            self.double_click_timeout_combo.setCurrentIndex(2)
+        self.double_click_timeout_slider = QSlider(Qt.Horizontal)
+        self.double_click_timeout_slider.setRange(50, 500)   # 50ms to 500ms
+        self.double_click_timeout_slider.setSingleStep(25)   # Arrow keys = 25ms
+        self.double_click_timeout_slider.setPageStep(50)     # Page up/down = 50ms
+        self.double_click_timeout_slider.setTickInterval(50)
+        self.double_click_timeout_slider.setTickPosition(QSlider.TicksBelow)
 
-        double_click_layout.addRow("Timeout:", self.double_click_timeout_combo)
+        self.double_click_timeout_spin = QSpinBox()
+        self.double_click_timeout_spin.setRange(50, 500)
+        self.double_click_timeout_spin.setSuffix(" ms")
+        self.double_click_timeout_spin.setSingleStep(1)      # Precise 1ms adjustment
+        self.double_click_timeout_spin.setFixedWidth(80)
+
+        # Sync slider and spinbox bidirectionally
+        self.double_click_timeout_slider.valueChanged.connect(self.double_click_timeout_spin.setValue)
+        self.double_click_timeout_spin.valueChanged.connect(self.double_click_timeout_slider.setValue)
+
+        # Set initial value (clamp to valid range)
+        current_timeout = max(50, min(500, self.result_double_click_timeout))
+        self.double_click_timeout_spin.setValue(current_timeout)
+
+        timeout_widget_layout.addWidget(self.double_click_timeout_slider, 1)
+        timeout_widget_layout.addWidget(self.double_click_timeout_spin)
+
+        double_click_layout.addRow("Timeout:", timeout_widget_layout)
 
         double_click_info = QLabel(
             "Time window for detecting double-press actions.\n"
-            "Only affects buttons with double-press actions configured.\n"
-            "Single-press actions on those buttons will have this latency."
+            "Shorter = tighter timing, less accidental triggers.\n"
+            "Longer = more forgiving, easier to hit."
         )
         double_click_info.setWordWrap(True)
         double_click_info.setStyleSheet("color: #666; font-size: 10px;")
@@ -310,7 +325,7 @@ class ProfileSettingsDialog(QDialog):
         self.result_window_class = self.window_class_edit.text().strip()
         self.result_haptic_strength = self.haptic_combo.currentData()
         self.result_haptic_speed = self.haptic_speed_combo.currentData()
-        self.result_double_click_timeout = self.double_click_timeout_combo.currentData()
+        self.result_double_click_timeout = self.double_click_timeout_spin.value()
 
         # Accept the dialog
         self.accept()

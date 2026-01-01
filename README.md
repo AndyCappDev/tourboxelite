@@ -1,6 +1,6 @@
 # TourBox Lite / Neo / Elite / Elite Plus Linux Driver
 
-**Version 2.5.1**
+**Version 2.6.0**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Platform: Linux](https://img.shields.io/badge/platform-linux-lightgrey.svg)](https://www.linux.org/)
@@ -95,7 +95,7 @@ Make sure your TourBox Elite is powered on and NOT connected via USB.
 bluetoothctl devices
 ```
 
-Look for "TourBox Elite" or "TourBox Elite Plus" - copy the MAC address (format: `XX:XX:XX:XX:XX:XX`). You will need it for step 2.
+Look for "TourBox [XXX]", [XXX] being your model of TourBox  - copy the MAC address (format: `XX:XX:XX:XX:XX:XX`). You will need it for step 2.
 
 Example output:
 ```
@@ -182,7 +182,7 @@ The installer will automatically:
 
 The driver includes a **graphical configuration tool** that makes it easy to configure button mappings without editing config files manually.
 
-![TourBox Elite Configuration GUI](docs/images/gui-screenshot.png?v=2.5.1)
+![TourBox Elite Configuration GUI](docs/images/gui-screenshot.png?v=2.6.0)
 
 ### Running the GUI
 
@@ -512,6 +512,7 @@ sudo usermod -a -G input $USER
 - [Example configurations](tourboxelite/default_mappings.conf)
 - [Development guide](docs/DEVELOPMENT.md)
 - [Why no overlay features?](docs/WHY_NO_OVERLAYS.md) - TourMenu, HUD, and Linux desktop fragmentation
+- [Button timing trade-offs](docs/BUTTON_TIMING_TRADEOFFS.md) - Understanding delays with combos and double-press
 
 ## License
 

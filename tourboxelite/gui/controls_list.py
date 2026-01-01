@@ -89,8 +89,16 @@ class ControlsList(QWidget):
         self.table.verticalHeader().setVisible(False)  # Hide row numbers
         # Set row height based on font metrics for proper scaling
         fm = self.table.fontMetrics()
-        self.table.verticalHeader().setDefaultSectionSize(int(fm.lineSpacing() * TABLE_ROW_HEIGHT_MULTIPLIER))
+        row_height = int(fm.lineSpacing() * TABLE_ROW_HEIGHT_MULTIPLIER)
+        self.table.verticalHeader().setDefaultSectionSize(row_height)
         self.table.itemSelectionChanged.connect(self._on_selection_changed)
+
+        # Set minimum height to match Modifier Combinations table (5 rows + header)
+        header_height = self.table.horizontalHeader().height()
+        if header_height < 20:
+            header_height = int(fm.lineSpacing() * 1.5)
+        min_table_height = row_height * 5 + header_height + 4
+        self.table.setMinimumHeight(min_table_height)
 
         layout.addWidget(self.table)
 
@@ -240,13 +248,19 @@ class ControlsList(QWidget):
             if rel_event:
                 event_code, value = rel_event
                 if event_code == e.REL_WHEEL:
-                    result = f"Scroll {'Up' if value > 0 else 'Down'}"
+                    rel_readable = f"Scroll {'Up' if value > 0 else 'Down'}"
                 elif event_code == e.REL_HWHEEL:
-                    result = f"Scroll {'Right' if value > 0 else 'Left'}"
+                    rel_readable = f"Scroll {'Right' if value > 0 else 'Left'}"
                 else:
                     # Fallback for other REL events
                     rel_name = self._get_rel_name(event_code)
-                    result = f"{rel_name}:{value}"
+                    rel_readable = f"{rel_name}:{value}"
+
+                # Combine modifiers with mouse action
+                if parts:
+                    result = "+".join(parts) + "+" + rel_readable
+                else:
+                    result = rel_readable
             else:
                 result = "+".join(parts) if parts else "(unmapped)"
 
@@ -275,8 +289,8 @@ class ControlsList(QWidget):
         if not action_str or action_str == "none":
             return "(none)"
 
-        # Handle REL events (scroll)
-        if action_str.startswith("REL_"):
+        # Handle simple REL events (scroll, no modifiers)
+        if action_str.startswith("REL_") and "+" not in action_str:
             if "WHEEL:" in action_str:
                 value = int(action_str.split(":")[1])
                 return f"Scroll {'Up' if value > 0 else 'Down'}"
@@ -284,13 +298,29 @@ class ControlsList(QWidget):
                 value = int(action_str.split(":")[1])
                 return f"Scroll {'Right' if value > 0 else 'Left'}"
 
-        # Handle mouse button events
+        # Handle simple mouse button events (no modifiers)
         if action_str == "BTN_LEFT":
             return "Left Click"
         elif action_str == "BTN_RIGHT":
             return "Right Click"
         elif action_str == "BTN_MIDDLE":
             return "Middle Click"
+
+        # Helper to convert mouse action part to readable
+        def mouse_part_to_readable(part):
+            if part.startswith("REL_WHEEL:"):
+                value = int(part.split(":")[1])
+                return f"Scroll {'Up' if value > 0 else 'Down'}"
+            if part.startswith("REL_HWHEEL:"):
+                value = int(part.split(":")[1])
+                return f"Scroll {'Right' if value > 0 else 'Left'}"
+            if part == "BTN_LEFT":
+                return "Left Click"
+            if part == "BTN_RIGHT":
+                return "Right Click"
+            if part == "BTN_MIDDLE":
+                return "Middle Click"
+            return None
 
         # Symbol key mapping
         SYMBOL_MAP = {
@@ -336,7 +366,12 @@ class ControlsList(QWidget):
                 else:
                     readable_parts.append(key_name.capitalize())
             else:
-                readable_parts.append(part)
+                # Check if it's a mouse action part
+                mouse_readable = mouse_part_to_readable(part)
+                if mouse_readable:
+                    readable_parts.append(mouse_readable)
+                else:
+                    readable_parts.append(part)
 
         return "+".join(readable_parts)
 

@@ -50,6 +50,11 @@ class Profile:
     double_press_actions: Dict[str, str] = field(default_factory=dict)  # control -> action string
     double_press_comments: Dict[str, str] = field(default_factory=dict)  # control -> comment
 
+    # On-release controls (fire action on release as tap, not on press)
+    on_release_controls: Set[str] = field(default_factory=set)
+    # Controls where user explicitly disabled on_release (don't auto-enable again)
+    on_release_user_disabled: Set[str] = field(default_factory=set)
+
     def matches(self, window_info) -> bool:
         """Check if this profile matches the given window info"""
         # Disabled profiles never match (except default which is always enabled)
@@ -190,6 +195,7 @@ def parse_action(action_str: str) -> List[Tuple[int, int, int]]:
         "KEY_LEFTCTRL+KEY_C" -> key combination (Ctrl+C)
         "REL_WHEEL:1" -> relative movement (wheel up)
         "REL_WHEEL:-1" -> relative movement (wheel down)
+        "KEY_LEFTCTRL+REL_WHEEL:1" -> modifier + relative movement (Ctrl+scroll)
 
     Returns:
         List of (event_type, event_code, value) tuples
@@ -199,29 +205,30 @@ def parse_action(action_str: str) -> List[Tuple[int, int, int]]:
     if not action_str or action_str == 'none':
         return events
 
-    # Handle relative events (REL_WHEEL:1, REL_HWHEEL:-1, etc)
-    if ':' in action_str:
-        parts = action_str.split(':')
-        if len(parts) == 2:
-            rel_name, value_str = parts
-            rel_name = rel_name.strip()
-            if rel_name in REL_NAMES:
-                try:
-                    value = int(value_str.strip())
-                    events.append((e.EV_REL, REL_NAMES[rel_name], value))
-                    return events
-                except ValueError:
-                    logger.error(f"Invalid relative value: {value_str}")
-                    return events
+    # Split by + first to handle compound actions like KEY_LEFTCTRL+REL_WHEEL:1
+    parts = [p.strip() for p in action_str.split('+')]
 
-    # Handle key combinations (KEY_LEFTCTRL+KEY_C)
-    keys = [k.strip() for k in action_str.split('+')]
+    for part in parts:
+        # Check if this part is a relative event (has : and matches REL_*)
+        if ':' in part:
+            rel_parts = part.split(':')
+            if len(rel_parts) == 2:
+                rel_name, value_str = rel_parts
+                rel_name = rel_name.strip()
+                if rel_name in REL_NAMES:
+                    try:
+                        value = int(value_str.strip())
+                        events.append((e.EV_REL, REL_NAMES[rel_name], value))
+                        continue
+                    except ValueError:
+                        logger.error(f"Invalid relative value: {value_str}")
+                        continue
 
-    for key in keys:
-        if key in KEY_NAMES:
-            events.append((e.EV_KEY, KEY_NAMES[key], 1))  # Press
+        # Check if this part is a key (includes BTN_LEFT/RIGHT/MIDDLE)
+        if part in KEY_NAMES:
+            events.append((e.EV_KEY, KEY_NAMES[part], 1))  # Press
         else:
-            logger.warning(f"Unknown key name: {key}")
+            logger.warning(f"Unknown key/button name: {part}")
 
     return events
 

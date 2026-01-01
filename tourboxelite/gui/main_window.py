@@ -94,7 +94,7 @@ class TourBoxConfigWindow(QMainWindow):
 
         # Top right: Controls list (can shrink when control editor needs more space)
         self.controls_list = ControlsList()
-        self.controls_list.setMinimumSize(400, 150)  # Allow shrinking to ~4-5 rows
+        self.controls_list.setMinimumWidth(400)  # Minimum width only, height set in ControlsList
         self.controls_list.control_selected.connect(self._on_control_selected)
         right_layout.addWidget(self.controls_list, stretch=0)  # No stretch - let control editor expand
 
@@ -109,6 +109,7 @@ class TourBoxConfigWindow(QMainWindow):
         self.control_editor.combo_haptic_changed.connect(self._on_combo_haptic_changed)
         self.control_editor.double_press_action_changed.connect(self._on_double_press_action_changed)
         self.control_editor.double_press_comment_changed.connect(self._on_double_press_comment_changed)
+        self.control_editor.on_release_changed.connect(self._on_on_release_changed)
         right_layout.addWidget(self.control_editor, stretch=1)
 
         main_splitter.addWidget(right_widget)
@@ -489,10 +490,12 @@ class TourBoxConfigWindow(QMainWindow):
         double_press_action = ""
         double_press_comment = ""
         double_click_timeout = 300
+        on_release = False
         if self.current_profile:
             double_press_action = self.current_profile.double_press_actions.get(control_name, "")
             double_press_comment = self.current_profile.double_press_comments.get(control_name, "")
             double_click_timeout = self.current_profile.double_click_timeout
+            on_release = control_name in self.current_profile.on_release_controls
 
         # Load into editor
         self.control_editor.load_control(
@@ -504,7 +507,8 @@ class TourBoxConfigWindow(QMainWindow):
             haptic_speed=haptic_speed,
             double_press_action=double_press_action,
             double_press_comment=double_press_comment,
-            double_click_timeout=double_click_timeout
+            double_click_timeout=double_click_timeout,
+            on_release=on_release
         )
 
         # Update status bar
@@ -637,6 +641,36 @@ class TourBoxConfigWindow(QMainWindow):
         self._update_window_title()
         self.save_action.setEnabled(True)
 
+    def _on_on_release_changed(self, control_name: str, enabled: bool):
+        """Handle on-release toggle change from editor
+
+        Args:
+            control_name: Name of the control
+            enabled: Whether on-release is enabled for this control
+        """
+        if not self.current_profile:
+            return
+
+        logger.info(f"On-release {'enabled' if enabled else 'disabled'}: {control_name}")
+
+        # Update the profile directly
+        if enabled:
+            self.current_profile.on_release_controls.add(control_name)
+            # User explicitly enabled - remove from user_disabled if present
+            self.current_profile.on_release_user_disabled.discard(control_name)
+        else:
+            self.current_profile.on_release_controls.discard(control_name)
+            # Check if this control is a modifier (has combos) - if so, track user's choice
+            is_modifier = control_name in self.current_profile.modifier_buttons
+            if is_modifier:
+                self.current_profile.on_release_user_disabled.add(control_name)
+                logger.info(f"Tracking user-disabled on_release for modifier: {control_name}")
+
+        self.is_modified = True
+        self._update_window_title()
+        self.save_action.setEnabled(True)
+        self.statusBar().showMessage(f"On-release modified: {control_name} (not saved)")
+
     def _on_modifier_config_changed(self, control_name: str, modifier_config: dict):
         """Handle modifier configuration change from editor
 
@@ -657,6 +691,21 @@ class TourBoxConfigWindow(QMainWindow):
 
         # Enable Save button
         self.save_action.setEnabled(True)
+
+        # Auto-enable on_release when button becomes a modifier (has combos)
+        if self.current_profile:
+            if modifier_config.get('is_modifier'):
+                # Button has combos - auto-enable on_release if user hasn't explicitly disabled it
+                if control_name not in self.current_profile.on_release_controls:
+                    if control_name not in self.current_profile.on_release_user_disabled:
+                        self.current_profile.on_release_controls.add(control_name)
+                        # Update the checkbox in the editor to reflect this
+                        self.control_editor.on_release_checkbox.setChecked(True)
+                        logger.info(f"Auto-enabled on_release for new modifier: {control_name}")
+            else:
+                # Button no longer has combos - clear user_disabled so it can auto-enable if combos added later
+                # Don't auto-disable on_release - user may want it for other reasons
+                self.current_profile.on_release_user_disabled.discard(control_name)
 
         # Update the controls list display to show modifier status
         for row in range(self.controls_list.table.rowCount()):
@@ -1027,11 +1076,11 @@ class TourBoxConfigWindow(QMainWindow):
         if not action_str or action_str == "none" or action_str == "(none)":
             return "(unmapped)"
 
-        # Handle mouse actions
-        if action_str.startswith("REL_WHEEL:"):
+        # Handle simple mouse actions (no modifiers)
+        if action_str.startswith("REL_WHEEL:") and "+" not in action_str:
             value = action_str.split(":")[1]
             return f"Scroll {'Up' if int(value) > 0 else 'Down'}"
-        if action_str.startswith("REL_HWHEEL:"):
+        if action_str.startswith("REL_HWHEEL:") and "+" not in action_str:
             value = action_str.split(":")[1]
             return f"Scroll {'Right' if int(value) > 0 else 'Left'}"
         if action_str == "BTN_LEFT":
@@ -1040,6 +1089,22 @@ class TourBoxConfigWindow(QMainWindow):
             return "Right Click"
         if action_str == "BTN_MIDDLE":
             return "Middle Click"
+
+        # Helper to convert mouse action part to readable
+        def mouse_part_to_readable(part):
+            if part.startswith("REL_WHEEL:"):
+                value = int(part.split(":")[1])
+                return f"Scroll {'Up' if value > 0 else 'Down'}"
+            if part.startswith("REL_HWHEEL:"):
+                value = int(part.split(":")[1])
+                return f"Scroll {'Right' if value > 0 else 'Left'}"
+            if part == "BTN_LEFT":
+                return "Left Click"
+            if part == "BTN_RIGHT":
+                return "Right Click"
+            if part == "BTN_MIDDLE":
+                return "Middle Click"
+            return None
 
         # Symbol key mapping
         SYMBOL_MAP = {
@@ -1086,7 +1151,12 @@ class TourBoxConfigWindow(QMainWindow):
                         key_name = key_name.title()
                 readable_parts.append(key_name)
             else:
-                readable_parts.append(part)
+                # Check if it's a mouse action part
+                mouse_readable = mouse_part_to_readable(part)
+                if mouse_readable:
+                    readable_parts.append(mouse_readable)
+                else:
+                    readable_parts.append(part)
 
         return "+".join(readable_parts)
 

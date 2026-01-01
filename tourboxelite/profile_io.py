@@ -226,6 +226,12 @@ def validate_profile_file(filepath: Path) -> Tuple[bool, str]:
                 # Skip .double keys (double-press actions)
                 if key.endswith('.double'):
                     continue
+                # Skip .on_release keys (on-release toggle)
+                if key.endswith('.on_release'):
+                    continue
+                # Skip .on_release_disabled keys (user explicitly disabled on-release)
+                if key.endswith('.on_release_disabled'):
+                    continue
                 # Skip .base_action keys (modifier base actions)
                 if key.endswith('.base_action'):
                     continue
@@ -297,6 +303,8 @@ def load_profile_from_file(filepath: Path):
         # Parse mappings from [mappings] section
         mapping = {}
         double_press_actions = {}
+        on_release_controls = set()
+        on_release_user_disabled = set()
         if 'mappings' in config.sections():
             for key, action in config['mappings'].items():
                 # Skip modifier declarations (handled separately)
@@ -307,6 +315,20 @@ def load_profile_from_file(filepath: Path):
                 if key.endswith('.double'):
                     control_name = key[:-7]  # Remove '.double' suffix
                     double_press_actions[control_name] = action.strip()
+                    continue
+
+                # Check for on-release toggle: control.on_release = true
+                if key.endswith('.on_release'):
+                    control_name = key[:-11]  # Remove '.on_release' suffix
+                    if action.strip().lower() in ('true', '1', 'yes'):
+                        on_release_controls.add(control_name)
+                    continue
+
+                # Check for on-release user disabled: control.on_release_disabled = true
+                if key.endswith('.on_release_disabled'):
+                    control_name = key[:-20]  # Remove '.on_release_disabled' suffix
+                    if action.strip().lower() in ('true', '1', 'yes'):
+                        on_release_user_disabled.add(control_name)
                     continue
 
                 if key in BUTTON_CODES:
@@ -450,7 +472,9 @@ def load_profile_from_file(filepath: Path):
             enabled=enabled,
             double_click_timeout=double_click_timeout,
             double_press_actions=double_press_actions,
-            double_press_comments=double_press_comments
+            double_press_comments=double_press_comments,
+            on_release_controls=on_release_controls,
+            on_release_user_disabled=on_release_user_disabled
         )
 
         logger.info(f"Loaded profile from file: {profile}")
@@ -525,6 +549,14 @@ def save_profile_to_file(profile, filepath: Path) -> bool:
         # Write double-press actions
         for control in sorted(profile.double_press_actions.keys()):
             lines.append(f"{control}.double = {profile.double_press_actions[control]}")
+
+        # Write on-release controls
+        for control in sorted(profile.on_release_controls):
+            lines.append(f"{control}.on_release = true")
+
+        # Write user-disabled on-release controls (to prevent auto-enable)
+        for control in sorted(profile.on_release_user_disabled):
+            lines.append(f"{control}.on_release_disabled = true")
 
         lines.append("")
 

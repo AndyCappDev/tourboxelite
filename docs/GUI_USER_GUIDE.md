@@ -1,7 +1,7 @@
 # TourBox Configuration GUI - User Guide
 
-**Version:** 1.8
-**Last Updated:** 2025-12-29
+**Version:** 2.0
+**Last Updated:** 2026-01-01
 
 ## Table of Contents
 
@@ -14,10 +14,11 @@
 7. [Configuring Button Mappings](#configuring-button-mappings)
 8. [Using Modifier Buttons](#using-modifier-buttons)
 9. [Using Double-Press Actions](#using-double-press-actions)
-10. [Configuring Haptic Feedback](#configuring-haptic-feedback)
-11. [Tips & Tricks](#tips--tricks)
-12. [Checking for Updates](#checking-for-updates)
-13. [Troubleshooting](#troubleshooting)
+10. [Using Activate on Release](#using-activate-on-release)
+11. [Configuring Haptic Feedback](#configuring-haptic-feedback)
+12. [Tips & Tricks](#tips--tricks)
+13. [Checking for Updates](#checking-for-updates)
+14. [Troubleshooting](#troubleshooting)
 
 
 ---
@@ -64,7 +65,7 @@ tourbox-gui
 
 ## Understanding the Interface
 
-![TourBox Configuration GUI](images/gui-screenshot.png?v=2.5.1)
+![TourBox Configuration GUI](images/gui-screenshot.png?v=2.6.0)
 
 The GUI has a 4-panel layout:
 
@@ -473,7 +474,13 @@ Send a keyboard key press (with optional modifiers).
 
 #### 2. Mouse
 
-Simulate mouse actions including scrolling and button clicks.
+Simulate mouse actions including scrolling and button clicks, with optional modifier keys.
+
+**Modifiers:** (can combine multiple)
+- Ctrl
+- Alt
+- Shift
+- Super (Windows/Command key)
 
 **Scroll Actions:**
 - Scroll Up - Scroll up
@@ -488,9 +495,11 @@ Simulate mouse actions including scrolling and button clicks.
 
 **Common uses:**
 - Map `Knob Clockwise` to Scroll Up and `Knob Counter-CW` to Scroll Down for scrolling
-- Map `Dial Clockwise`/`Dial Counter-CW` for zooming (if app supports Ctrl+Wheel)
+- Map `Dial Clockwise`/`Dial Counter-CW` to **Ctrl+Scroll Up/Down** for zooming in most applications
 - Map a button to Right Click to open context menus without moving your hand to the mouse
 - Map Middle Click for paste operations in terminals or opening links in new tabs
+- Map **Ctrl+Left Click** for multi-select in file managers and list views
+- Map **Shift+Left Click** for range selection
 
 #### 3. None (Unmapped)
 
@@ -778,51 +787,37 @@ The "(2×: ...)" suffix disappears from the Current Action column.
 
 ### Understanding the Double-Press Timeout
 
-Double-press detection uses a **timeout window** to distinguish between:
-- **Single-press:** One press, wait for timeout, action executes
-- **Double-press:** Two presses within timeout, double-press action executes
+Double-press detection uses a **timeout window** to distinguish between single and double presses:
 
-**Default timeout:** 300ms (adjustable per profile from 200ms to 500ms)
+**Default timeout:** 300ms (adjustable per profile from 50ms to 500ms)
 
 **To change the timeout:**
 1. Select the profile in the Profiles list
 2. Click the **"⚙"** (settings) button
 3. Find the **"Double-Click"** section
-4. Adjust the **"Timeout"** dropdown (200ms - 500ms)
+4. Use the **slider** for quick 25ms adjustments, or type an exact value in the **spin box**
 5. Click **"Apply"**, then **"Save"**
 
-### Important: Latency Implications
+### How Immediate Fire Works (Default)
 
-When you configure double-press actions, there are **latency trade-offs** you should understand:
+The driver uses **immediate fire** by default - base actions fire instantly with **zero latency**:
 
-#### Single-Press Latency (Buttons with Double-Press)
+**Example:** Button with Space (pan) + double-press Shift:
+1. **First press** → Space DOWN immediately (pan starts!)
+2. **First release** → Space UP (pan stops)
+3. **Second press within timeout** → Shift DOWN (double-press detected!)
+4. **Second release** → Shift UP
 
-When a button has a double-press action configured, the **single-press action is delayed** by the timeout period.
+**Key benefit:** Hold actions (pan, zoom) work perfectly because the key fires immediately on press.
 
-**Why?** The driver must wait to see if a second press is coming before deciding which action to execute.
+**The trade-off:** If you double-press, you get a quick tap of the base action before the double-press action. For most workflows, this is acceptable and preferable to latency.
 
-**Example with 300ms timeout:**
-- You press and release the button once
-- Driver waits 300ms to see if you press again
-- If no second press → single-press action fires (300ms delayed)
-- If second press within 300ms → double-press action fires immediately
+### Timeout Recommendations
 
-**Tip:** If latency bothers you, use a shorter timeout (200ms) or reserve double-press for buttons where the delay is acceptable.
-
-#### Modifier + Combo Latency
-
-When a **modifier button has combos configured**, there is a small latency (~100-150ms) before the base action fires.
-
-**Why?** The driver needs time to detect if you're pressing a combo (modifier + another button) before committing to the base action.
-
-**Example:**
-- `Short` button is a modifier with base action "B" and combo `Short+Tall = Z`
-- You press `Short` alone
-- Driver waits ~150ms to see if `Tall` is pressed
-- If `Tall` pressed → combo "Z" fires, base action cancelled
-- If no combo → base action "B" fires after the delay
-
-**Important:** This latency applies to **all modifier buttons with combos**, regardless of whether they have double-press configured.
+- **100-150ms**: Very tight timing, requires fast fingers, fewer accidental triggers
+- **200-250ms**: Good balance for experienced users
+- **300ms** (default): Safe default for most users, reliable double-press detection
+- **400-500ms**: Very forgiving, easier to hit double-press
 
 ### Tips for Using Double-Press Actions
 
@@ -835,10 +830,12 @@ When a **modifier button has combos configured**, there is a small latency (~100
 - Single-press: Undo (Ctrl+Z) - used constantly
 - Double-press: Undo history dialog (Ctrl+Alt+Z) - used occasionally
 
-**2. Consider the Timeout Trade-off**
+**2. Choose Your Timeout**
 
-- **Shorter timeout (200ms):** Less latency, but harder to trigger double-press
-- **Longer timeout (400-500ms):** Easier double-press, but more latency on single-press
+- **100-150ms**: Tight timing, fewer accidental triggers
+- **200-250ms**: Good balance for experienced users
+- **300ms** (default): Safe default, reliable detection
+- **400-500ms**: More forgiving for slower double-taps
 
 **3. Combine with Modifiers**
 
@@ -869,19 +866,220 @@ Or mode switches:
 3. Verify the double-press action is configured (look for "(2×: ...)" in Current Action)
 4. Check that you clicked "Apply" and "Save" after configuring
 
-**Problem:** Single-press feels laggy
+**Problem:** Accidentally triggering double-press
 
 **Solutions:**
-1. Reduce the timeout to 200ms in Profile Settings
-2. If latency is unacceptable, remove the double-press action for that button
-3. Consider using a modifier combo instead of double-press
+1. Reduce the timeout to 100-150ms in Profile Settings
+2. This creates a tighter window so normal button presses don't accidentally trigger double-press
 
 **Problem:** Combo fires base action AND combo action
 
 **Solutions:**
 1. This can happen if you press the combo button too slowly
 2. Try pressing the combo button more quickly after the modifier
-3. The base action deferral window is ~150ms - press within this time
+3. Enable "Activate on release" for the modifier button for cleaner combos (see next section)
+
+---
+
+## Using Activate on Release
+
+### What Is "Activate on Release"?
+
+**Activate on release** is a button behavior option that changes when a button's action fires:
+
+- **Normal behavior (off):** Action fires immediately when button is pressed
+- **Activate on release (on):** Action fires when button is released, as a quick tap (press+release together)
+
+This option is especially useful for **modifier buttons** where you need reliable combo detection.
+
+### Why Use Activate on Release?
+
+**The Problem with Modifiers:**
+
+When you configure a button as a modifier (with combos), pressing it needs to do two things:
+1. Track that the modifier is held (for combo detection)
+2. Optionally fire a base action (like Ctrl or Shift)
+
+Without "Activate on release", the base action fires immediately on press. If you're slightly slow pressing the combo button, you get:
+- Base action fires (e.g., Space)
+- Then combo fires (e.g., T)
+- Result: "Space T" instead of just "T"
+
+**The Solution:**
+
+With "Activate on release" enabled:
+- Press modifier → nothing fires yet, just tracks modifier state
+- Press combo button while holding → combo fires
+- Release modifier → if no combo was used, base action fires as tap
+
+This gives you reliable combo detection without accidental base action triggers.
+
+### Auto-Enable for Modifier Buttons
+
+When you add a combo to a button (making it a modifier), the **"Activate on release" checkbox is automatically enabled**. This is the recommended behavior for most users.
+
+**Why auto-enable?**
+- Modifier buttons benefit most from on-release behavior
+- Prevents the "base action + combo" double-fire problem
+- You can still disable it if you prefer immediate behavior
+
+**Auto-enable rules:**
+- Adding first combo → checkbox auto-enables
+- User unchecks manually → choice is remembered, won't auto-enable again
+- Removing all combos → checkbox stays as-is (you may want on-release for other reasons)
+
+### Manually Configuring Activate on Release
+
+**To enable/disable:**
+
+1. **Select the button** in the Controls Configuration table
+2. Find the **"Activate on release"** checkbox in the Control Editor
+3. **Check or uncheck** the box
+4. Click **"Apply"**, then **"Save"**
+
+**When to manually enable (non-modifier buttons):**
+- Buttons with double-press where you want consistent tap behavior
+- Any button where you prefer release-triggered actions
+
+**When to manually disable (modifier buttons):**
+- You need the base action to fire immediately (e.g., holding Ctrl for click-drag)
+- You're comfortable with the timing and don't experience double-fire issues
+
+### How It Works with Double-Press
+
+"Activate on release" uses **immediate fire** - the base action fires instantly on release:
+
+**Single press:**
+1. Press button → nothing fires (deferred)
+2. Release button → single-press action fires **immediately** as tap
+
+**Double press (dirty input):**
+1. Press button → nothing fires
+2. Release button → single-press action fires immediately as tap
+3. Press button again (within timeout) → double-press action fires as tap
+
+**With combos:**
+1. Hold modifier (with on-release) → nothing fires
+2. Press combo button → combo fires
+3. Release modifier → no base action (combo was used, stays clean!)
+
+### Example: Reliable Modifier Setup
+
+**Scenario:** Short button mapped to Space, with combo Short+Tall=T
+
+**Without Activate on Release:**
+- Press Short → Space fires immediately
+- Press Tall while holding Short → T fires
+- Result: "Space T" (unwanted Space)
+
+**With Activate on Release:**
+- Press Short → nothing fires (modifier tracked)
+- Press Tall while holding Short → T fires
+- Release Short → nothing fires (combo was used)
+- Result: Just "T" (correct!)
+
+**If you just tap Short:**
+- Press Short → nothing fires
+- Release Short → Space fires as tap
+- Result: Just "Space" (correct!)
+
+### Configuration in Profile Files
+
+The setting is stored in your profile file:
+
+```ini
+[mappings]
+short = KEY_SPACE
+short.on_release = true
+```
+
+If you explicitly disable on-release for a modifier, this is also tracked:
+
+```ini
+short.on_release_disabled = true
+```
+
+This prevents auto-enable from overriding your choice when you edit combos later.
+
+### Tips for Activate on Release
+
+**1. Let it auto-enable for modifiers**
+- The default auto-enable behavior works well for most users
+- Only disable if you have a specific reason
+
+**2. Use for buttons with both combos and double-press**
+- Ensures consistent tap behavior for single-press
+- Double-press detection works correctly
+
+**3. Consider latency trade-offs**
+- On-release adds a tiny delay (action fires on release, not press)
+- For most uses, this is imperceptible
+- If you need instant response (e.g., gaming), you may prefer off
+
+**4. Test your workflow**
+- After enabling, test your common button sequences
+- Verify combos fire cleanly without base action interference
+
+### Understanding Immediate Fire vs Activate on Release
+
+The driver offers two modes for button behavior:
+
+**Immediate Fire (Default):**
+- Base action fires instantly on press - zero latency
+- Hold behavior works (key stays down while held)
+- Double-press: quick base tap, then double-press action
+- Best for: pan, zoom, modifiers where instant response matters
+
+**Activate on Release:**
+- Base action deferred until release (fires as tap immediately)
+- Clean combos (no base action before combo)
+- Dirty double-press (base fires on release, then double-press on second press)
+- Best for: tool switching, buttons with many combos
+
+| Feature | Immediate Fire (Default) | Activate on Release |
+|---------|-------------------------|---------------------|
+| Base action timing | Instant on press | Instant on release (as tap) |
+| Hold behavior | Works | Broken (fires as tap) |
+| Double-press | Quick base tap first | Quick base tap on release first |
+| Combos | Base may fire briefly | Clean (no base first) |
+
+**Choose based on button function:**
+
+| Button Function | Recommended Mode |
+|-----------------|------------------|
+| Pan canvas (Space) | Immediate Fire (default) |
+| Zoom (Ctrl) | Immediate Fire (default) |
+| Tool switching | Activate on Release |
+| Many combos | Activate on Release |
+
+### Troubleshooting Activate on Release
+
+**Problem:** Base action never fires
+
+**Solutions:**
+1. Make sure you're releasing the button (action fires on release)
+2. Check that a combo isn't being triggered accidentally
+3. Verify the base action is configured (not empty)
+
+**Problem:** Combo fires base action AND combo
+
+**Solutions:**
+1. Enable "Activate on release" for the modifier button
+2. This is the exact problem on-release is designed to solve
+
+**Problem:** Double-press doesn't work with on-release modifier
+
+**Solutions:**
+1. This should work automatically - both single and double-press fire on release
+2. Check that double-press action is configured
+3. Try adjusting the double-press timeout in Profile Settings
+
+**Problem:** Checkbox keeps getting checked when I don't want it
+
+**Solutions:**
+1. Uncheck the box and save - your preference is remembered
+2. The `on_release_disabled` flag prevents future auto-enable
+3. This persists even if you edit combos later
 
 ---
 
