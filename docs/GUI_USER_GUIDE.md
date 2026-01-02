@@ -795,7 +795,7 @@ Double-press detection uses a **timeout window** to distinguish between single a
 1. Select the profile in the Profiles list
 2. Click the **"⚙"** (settings) button
 3. Find the **"Double-Click"** section
-4. Use the **slider** for quick 25ms adjustments, or type an exact value in the **spin box**
+4. Use the **slider** for quick 50ms adjustments, or type an exact value in the **spin box**
 5. Click **"Apply"**, then **"Save"**
 
 ### How Immediate Fire Works (Default)

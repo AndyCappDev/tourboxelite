@@ -9,7 +9,7 @@
 **Author:** Scott Bowman ([AndyCappDev](https://github.com/AndyCappDev))
 **Original Repository:** [github.com/AndyCappDev/tourbox-linux](https://github.com/AndyCappDev/tourbox-linux)
 
-Linux driver for the TourBox Lite, Neo, Elite and Elite Plus by TourBox Tech Inc. Supports both **USB** and **Bluetooth LE** connections.
+Linux driver for the TourBox Lite, Neo, Elite and Elite Plus by TourBox Tech Inc. Connects via **USB** or **Bluetooth LE** with button response so seamless, you'll forget it's not the official driver.
 
 > **If you find this useful, please ⭐ star this repo (click the Star button in the top right) to help others discover it!**
 
@@ -82,7 +82,7 @@ The driver **auto-detects** everything:
 - **USB:** Scans `/dev/ttyACM*` devices and probes each for a TourBox response
 - **Bluetooth:** Scans for any device named "TourBox" and connects automatically
 
-> **Note:** For Bluetooth, you do NOT need to pair or configure anything. The driver finds your TourBox automatically by scanning for its name. If the driver doesn't find your TourBox, try putting it in pairing mode (hold the button above the power switch for 2-3 seconds until the LED flashes) and restart the driver with `systemctl --user restart tourbox`. After the first successful connection, normal power cycles should reconnect automatically without needing pairing mode again.
+> **Note:** For Bluetooth, some Elite models do not require pairing depending on what firmware is installed on them. The driver finds your TourBox automatically by scanning for its name. If the driver doesn't find your TourBox, try putting it in pairing mode (hold the button above the power switch for 2-3 seconds until the LED flashes) and restart the driver with `File->Restart Driver` in the Configuration GUI. After the first successful connection, normal power cycles should reconnect automatically without needing pairing mode again.
 
 ### Run the Installer
 
@@ -95,12 +95,9 @@ cd tourbox-linux
 The installer will:
 1. Create a Python virtual environment
 2. Install the driver and dependencies
-3. Set up your configuration file
-4. Install and enable the systemd service
+3. Install and enable the systemd service
 
 Log out and log back in or reboot to activate the driver.
-
-> **Note:** If you haven't run the GUI yet and you are upgrading, your config may still be in the legacy format at `~/.config/tourbox/mappings.conf`. The GUI will automatically migrate it to the new format on first launch.
 
 ### Additional Step for KDE Plasma Users
 
